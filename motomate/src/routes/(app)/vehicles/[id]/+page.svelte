@@ -28,6 +28,8 @@
 	});
 
 	const locale = $derived(data.user?.settings?.locale ?? 'en');
+	// Timeline records retain their original currency code; the account preference controls display.
+	const currency = $derived(data.currency ?? data.user?.settings?.currency ?? 'EUR');
 	const unit = $derived(data.vehicle.odometer_unit);
 	const isHoursVehicle = $derived(unit === 'h');
 	const updateReadingTitle = $derived(
@@ -806,7 +808,7 @@
 										{#if log.cost_cents}
 											<span class="sep">·</span>
 											<span class="mono cost"
-												>{formatCurrency(log.cost_cents, log.currency, locale)}</span
+												>{formatCurrency(log.cost_cents, currency, locale)}</span
 											>
 										{/if}
 										{#if log.remark}
@@ -929,7 +931,7 @@
 										{#if t.total_expenses_cents != null}
 											<span class="entry-meta-sep">·</span>
 											<span class="entry-meta-item mono"
-												>{formatCurrency(t.total_expenses_cents, t.currency, locale)}</span
+												>{formatCurrency(t.total_expenses_cents, currency, locale)}</span
 											>
 										{/if}
 									</div>
@@ -977,7 +979,7 @@
 										<span>{$_(`finance.categories.${tx.category}`)}</span>
 										<span class="sep">·</span>
 										<span class="mono cost"
-											>{formatCurrency(tx.amount_cents, tx.currency, locale)}</span
+											>{formatCurrency(tx.amount_cents, currency, locale)}</span
 										>
 									</div>
 								</div>

@@ -119,7 +119,7 @@ export const load: PageServerLoad = async ({ parent, params, locals }) => {
 		byCategory: sortedCategories,
 		byDescription: sortedDescriptions,
 		allTransactions,
-		currency: (vehicle as any).currency || 'EUR',
+		currency: locals.user!.settings?.currency ?? 'EUR',
 		purchasePriceCents,
 		soldPriceCents,
 		totalInvestmentCents,
