@@ -15,17 +15,8 @@ import {
 	getRouteDocumentsByVehicle
 } from '$lib/db/repositories/documents.js';
 import { getStorage } from '$lib/storage/index.js';
-import { generateId } from '$lib/utils/id.js';
-
-function storageKey(userId: string, filename: string): string {
-	const ext =
-		filename
-			.split('.')
-			.pop()
-			?.replace(/[^a-zA-Z0-9]/g, '') ?? 'bin';
-	const id = generateId();
-	return `files/${userId}/${id}.${ext}`;
-}
+import { onDocumentCreated, mirrorDelete } from '$lib/server/integrations.js';
+import { attachmentStorageKey } from '$lib/utils/storage.js';
 
 export const load: PageServerLoad = async ({ parent, locals }) => {
 	const { vehicle } = await parent();
@@ -112,7 +103,7 @@ export const actions: Actions = {
 				return fail(400, { createError: `GPX file for day ${i + 1} exceeds 20 MB` });
 
 			const buffer = Buffer.from(await file.arrayBuffer());
-			const key = storageKey(userId, `day-${i + 1}.gpx`);
+			const key = attachmentStorageKey(userId, `day-${i + 1}.gpx`);
 			await storage.put(key, buffer, 'application/gpx+xml');
 
 			const doc = await createDocument(userId, {
@@ -123,6 +114,7 @@ export const actions: Actions = {
 				mime_type: 'application/gpx+xml',
 				size_bytes: file.size
 			});
+			onDocumentCreated(userId, doc);
 			gpxDocIds[i] = doc.id;
 		}
 
@@ -187,8 +179,7 @@ export const actions: Actions = {
 			// Null this specific slot first
 			updatedDocIds[i] = null;
 
-			// Only delete from storage/DB if no other slot in this travel still references
-			// the same docId, and no other travel references it either
+			// Only delete when no other slot and no other travel still references this docId
 			const stillInThisTravel = updatedDocIds.some((id) => id === docId);
 			if (!stillInThisTravel) {
 				const isShared = await isDocumentReferencedByOtherTravels(docId, id, vehicleId);
@@ -218,7 +209,7 @@ export const actions: Actions = {
 				return fail(400, { editError: `GPX file for day ${i + 1} exceeds 20 MB` });
 
 			const buffer = Buffer.from(await file.arrayBuffer());
-			const key = storageKey(userId, `day-${i + 1}.gpx`);
+			const key = attachmentStorageKey(userId, `day-${i + 1}.gpx`);
 			await storage.put(key, buffer, 'application/gpx+xml');
 
 			const doc = await createDocument(userId, {
@@ -229,6 +220,7 @@ export const actions: Actions = {
 				mime_type: 'application/gpx+xml',
 				size_bytes: file.size
 			});
+			onDocumentCreated(userId, doc);
 			updatedDocIds[i] = doc.id;
 		}
 
@@ -266,6 +258,7 @@ export const actions: Actions = {
 				if (!isShared) {
 					await storage.delete(doc.storage_key).catch(() => {});
 					await deleteDocument(doc.id, userId);
+					mirrorDelete(userId, doc.storage_key);
 				}
 			}
 		}

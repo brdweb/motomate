@@ -3,8 +3,7 @@ import { DrizzleSQLiteAdapter } from '@lucia-auth/adapter-drizzle';
 import { db } from '../db/index.js';
 import { sessions, users } from '../db/schema.js';
 
-// Secure in production by default; opt out with AUTH_COOKIE_SECURE=false,
-// opt in for local HTTPS with AUTH_COOKIE_SECURE=true.
+// Secure in production by default; AUTH_COOKIE_SECURE opts in or out explicitly
 export const isSecureCookie =
 	process.env.AUTH_COOKIE_SECURE === 'true' ||
 	(process.env.NODE_ENV === 'production' && process.env.AUTH_COOKIE_SECURE !== 'false');

@@ -76,6 +76,8 @@
 		body: string;
 		created_at: string;
 		read_at: string | null;
+		vehicle_id?: string | null;
+		data?: { url?: string };
 	};
 	let notifItems = $state<NotifItem[]>([]);
 	let notifLoading = $state(false);
@@ -101,7 +103,7 @@
 		notifLoading = true;
 		notifError = false;
 		try {
-			const res = await fetch('/api/notifications?limit=3');
+			const res = await fetch('/api/notifications?limit=5&filter=unread');
 			if (res.ok) notifItems = await res.json();
 			else notifError = true;
 		} catch {
@@ -109,6 +111,11 @@
 		} finally {
 			notifLoading = false;
 		}
+	}
+
+	function notifHref(item: NotifItem): string {
+		if (item.data?.url) return item.data.url;
+		return item.vehicle_id ? `/vehicles/${item.vehicle_id}` : '/settings/notifications/all';
 	}
 
 	async function dismissNotif(item: NotifItem) {
@@ -119,6 +126,17 @@
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify({ id: item.id })
+		});
+	}
+
+	async function clearNotifs() {
+		if (notifItems.length === 0) return;
+		notifItems = [];
+		notifCountAdjustment = data.unreadCount ?? 0;
+		await fetch('/api/notifications', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ all: true })
 		});
 	}
 
@@ -271,8 +289,7 @@
 	let currentTheme = $state(
 		untrack(() => {
 			const db = (data.user.settings.theme ?? 'system') as 'light' | 'dark' | 'system';
-			// DB 'system' means the user never set it explicitly inside the app.
-			// Prefer localStorage (kept in sync by both auth and app layouts).
+			// DB 'system' means never set in-app, so prefer localStorage which both layouts keeps in sync
 			if (db !== 'system') return db;
 			return browser ? readStoredTheme() : 'system';
 		})
@@ -460,6 +477,15 @@
 											class:notif-item--unread={!item.read_at}
 											use:swipeable={{ onDismiss: () => dismissNotif(item) }}
 										>
+											<a
+												class="notif-hit"
+												href={notifHref(item)}
+												aria-label={item.title}
+												onclick={() => {
+													notifMenuOpen = false;
+													dismissNotif(item);
+												}}
+											></a>
 											<div class="notif-item-row">
 												<span class="notif-title">{item.title}</span>
 												<span class="notif-time">{timeAgo(item.created_at)}</span>
@@ -494,24 +520,42 @@
 								</div>
 							{/if}
 
-							<a
-								href="/settings/notifications/all"
-								class="notif-footer"
-								onclick={() => (notifMenuOpen = false)}
-							>
-								{$_('layout.notifications.viewAll')}
-								<svg
-									viewBox="0 0 24 24"
-									fill="none"
-									stroke="currentColor"
-									stroke-width="2"
-									stroke-linecap="round"
-									stroke-linejoin="round"
-									aria-hidden="true"
+							<div class="notif-actions">
+								{#if notifItems.length > 0}
+									<button type="button" class="notif-clear" onclick={clearNotifs}>
+										<svg
+											viewBox="0 0 24 24"
+											fill="none"
+											stroke="currentColor"
+											stroke-width="2"
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											aria-hidden="true"
+										>
+											<polyline points="20 6 9 17 4 12" />
+										</svg>
+										{$_('layout.notifications.clearAll')}
+									</button>
+								{/if}
+								<a
+									href="/settings/notifications/all"
+									class="notif-footer"
+									onclick={() => (notifMenuOpen = false)}
 								>
-									<polyline points="9 18 15 12 9 6" />
-								</svg>
-							</a>
+									{$_('layout.notifications.viewAll')}
+									<svg
+										viewBox="0 0 24 24"
+										fill="none"
+										stroke="currentColor"
+										stroke-width="2"
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										aria-hidden="true"
+									>
+										<polyline points="9 18 15 12 9 6" />
+									</svg>
+								</a>
+							</div>
 						</div>
 					{/if}
 				</div>
@@ -1248,6 +1292,7 @@
 	}
 
 	.notif-item {
+		position: relative;
 		padding: 0.625rem 0.875rem;
 		border-bottom: 1px solid var(--border);
 		border-left: 3px solid transparent;
@@ -1261,6 +1306,16 @@
 	}
 	.notif-item--unread {
 		border-left-color: var(--accent);
+	}
+
+	.notif-hit {
+		position: absolute;
+		inset: 0;
+		z-index: 1;
+	}
+
+	.notif-item:hover {
+		background: var(--bg-subtle);
 	}
 
 	.notif-item-row {
@@ -1286,6 +1341,8 @@
 	}
 
 	.notif-dismiss {
+		position: relative;
+		z-index: 2;
 		width: 20px;
 		height: 20px;
 		display: flex;
@@ -1326,16 +1383,71 @@
 		text-overflow: ellipsis;
 	}
 
+	.notif-actions {
+		display: flex;
+		align-items: stretch;
+		border-top: 1px solid var(--border);
+	}
+
+	.notif-clear {
+		display: flex;
+		align-items: center;
+		gap: 0.375rem;
+		padding: 0.75rem 0.875rem;
+		min-height: 44px;
+		background: none;
+		border: none;
+		border-right: 1px solid var(--border);
+		font-size: var(--text-sm);
+		font-weight: 500;
+		color: var(--text-muted);
+		cursor: pointer;
+		white-space: nowrap;
+		transition:
+			background 0.15s,
+			color 0.15s;
+	}
+
+	.notif-clear svg {
+		width: 15px;
+		height: 15px;
+		flex-shrink: 0;
+		transform: scale(0.85);
+		opacity: 0.6;
+		transition:
+			transform 0.15s ease-out,
+			opacity 0.15s ease-out;
+	}
+
+	.notif-clear:hover,
+	.notif-clear:active {
+		background: var(--bg-subtle);
+		color: var(--text);
+	}
+
+	.notif-clear:hover svg,
+	.notif-clear:active svg {
+		transform: scale(1);
+		opacity: 1;
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.notif-clear svg {
+			transition: none;
+		}
+	}
+
 	.notif-footer {
+		flex: 1;
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
+		min-height: 44px;
 		padding: 0.75rem 0.875rem;
 		font-size: var(--text-sm);
 		font-weight: 500;
 		color: var(--accent);
 		text-decoration: none;
-		border-top: 1px solid var(--border);
 		transition: background 0.1s;
 	}
 	.notif-footer:hover {

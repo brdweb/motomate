@@ -1,0 +1,28 @@
+name: Read Me Update Contributors
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  update-contributors:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Generate Contributors Table
+        run: |
+          npx all-contributors-cli generate
+
+      - name: Commit and Push Changes
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "docs: update contributors table [skip ci]"
+          file_pattern: "README.md .all-contributorsrc"

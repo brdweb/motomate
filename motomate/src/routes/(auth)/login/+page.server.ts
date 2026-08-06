@@ -72,7 +72,8 @@ export const actions: Actions = {
 		const messages = localeMessages[userLocale] ?? localeMessages['en'];
 		const errors = messages.auth.login.errors;
 
-		if (!rateLimit(`login:${ip}`, 10, 15 * 60_000)) {
+		// Behind a proxy all requests share one address, so this is a coarse backstop; the per-account bucket does the real work
+		if (!rateLimit(`login:ip:${ip}`, 100, 15 * 60_000)) {
 			return fail(429, { error: errors.rateLimited, email: '' });
 		}
 		const remember = data.remember === 'on';
@@ -83,6 +84,10 @@ export const actions: Actions = {
 				error: errors.invalidFormat,
 				email: String(data.email ?? '')
 			});
+		}
+
+		if (!rateLimit(`login:email:${parsed.data.email}`, 10, 15 * 60_000)) {
+			return fail(429, { error: errors.rateLimited, email: parsed.data.email });
 		}
 
 		const user = await getUserByEmail(parsed.data.email);
@@ -149,7 +154,7 @@ export const actions: Actions = {
 
 		const ip = getClientAddress();
 
-		if (!rateLimit(`magic:${ip}`, 5, 60 * 60_000)) {
+		if (!rateLimit(`magic:ip:${ip}`, 50, 60 * 60_000)) {
 			return fail(429, { error: errors.rateLimited });
 		}
 
@@ -160,6 +165,11 @@ export const actions: Actions = {
 
 		if (!parsed.success) {
 			return fail(400, { error: errors.invalidEmail });
+		}
+
+		// Per-address: the mail that lands in someone's inbox is the thing worth bounding.
+		if (!rateLimit(`magic:email:${parsed.data.email}`, 5, 60 * 60_000)) {
+			return fail(429, { error: errors.rateLimited });
 		}
 
 		// Find or create user (passwordless)

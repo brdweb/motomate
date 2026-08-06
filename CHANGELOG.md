@@ -1,5 +1,34 @@
 # Changelog
 
+## v0.5.0
+
+- Add your own document storage destinations from your profile page! Save a copy of your documents on a S3-compatible server or in Paperless-ngx
+- You can now convert an existing vehicle between kilometers and miles (not compatible with hours, ofcourse)
+- Your account currency and distance preferences are now applied consistently across, while each entry keeps the currency it was originally recorded in
+- Spending totals now group by currency when a vehicle has entries in more than one currency, instead of adding different currencies into a single incorrect total
+- Your notifications in the notification-tray now have a click-action, a new 'Clear all' button and show 5 items (instead of 3)
+- OpenAPI specification has been upgraded from 3.1 to 3.2.0 with webhooks support
+- Fix: new vehicles now default to your account distance unit
+- Fix: the theme selector no longer resets to 'system' after saving your profile
+- Fix: the measurement unit toggle in profile settings now switches on click and saves correctly
+- Fix: the maintenance page heading now matches the size used on the other vehicle pages
+- Fix: show last fired time for workflow rules (instead of returning an invalid date/object map)
+- Fix: show finance tally on the dashboard for all financial entries (instead of only finance entries made from finance-tab)
+- Fix: reuse drawer on various pages
+- Fix: reuse document reads during sync instead of reading off the disk twice
+- Fix: remove the `BODY_SIZE_LIMIT` variable in the default docker compose config, it now defaults to 20 MB
+- Fix: bundle the map stylesheet instead of loading it from a CDN, so travel maps render without internet access
+- Fix: replacing a vehicle photo or profile avatar now shows the new image right away, instead of the old one sticking around for up to an hour
+- Fix: vehicle photos and documents are no longer re-downloaded on every visit, so pages open quicker and use less data on mobile
+- Security: Verify ownership before deleting an object/file
+- Security: Close registration by default (except during onboarding)
+- Security: Add SSRF protection to fetch calls via shared URL validation
+- Security: Add rate limiting keyed on the account
+- Security: Add a Content Security Policy (CSP)
+- Security: Refuse to start on a default or too short `AUTH_SECRET`, existing installs log a warning instead so an upgrade never fails to boot
+- Security: Reject changes coming from an untrusted/missing origin, rather than allowing them when `PUBLIC_APP_ORIGINS` is unset
+- Security: Scope push notification unsubscribes to the account that owns them
+
 ## 0.4.0
 
 - Added an 'Insights' view showing how far you've ridden and what you've spent. You can filter by vehicle and time range, toggle between monthly and cumulative costs, and see service events directly on your mileage chart

@@ -17,8 +17,9 @@ describe('isRegistrationOpen', () => {
 		vi.mocked(hasAnyUser).mockReset();
 	});
 
-	it('open when AUTH_ALLOW_REGISTRATION is unset', async () => {
-		expect(await isRegistrationOpen()).toBe(true);
+	it('closed when AUTH_ALLOW_REGISTRATION is unset and users exist', async () => {
+		vi.mocked(hasAnyUser).mockResolvedValue(true);
+		expect(await isRegistrationOpen()).toBe(false);
 	});
 
 	it('open when AUTH_ALLOW_REGISTRATION=true', async () => {
@@ -32,11 +33,16 @@ describe('isRegistrationOpen', () => {
 		expect(await isRegistrationOpen()).toBe(false);
 	});
 
-	it('open when AUTH_ALLOW_REGISTRATION=false but no users (first-user failsafe)', async () => {
-		process.env.AUTH_ALLOW_REGISTRATION = 'false';
-		vi.mocked(hasAnyUser).mockResolvedValue(false);
-		expect(await isRegistrationOpen()).toBe(true);
-	});
+	// Onboarding must never be blocked by configuration: an empty database always registers.
+	it.each([undefined, 'false', 'FALSE', '', '0', 'no', 'garbage'])(
+		'open on an empty database with AUTH_ALLOW_REGISTRATION=%s',
+		async (value) => {
+			if (value === undefined) delete process.env.AUTH_ALLOW_REGISTRATION;
+			else process.env.AUTH_ALLOW_REGISTRATION = value;
+			vi.mocked(hasAnyUser).mockResolvedValue(false);
+			expect(await isRegistrationOpen()).toBe(true);
+		}
+	);
 
 	it('hasAnyUser not called when registration is explicitly enabled', async () => {
 		process.env.AUTH_ALLOW_REGISTRATION = 'true';

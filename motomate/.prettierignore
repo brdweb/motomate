@@ -1,0 +1,6 @@
+.svelte-kit
+build
+node_modules
+uploads
+data
+package-lock.json

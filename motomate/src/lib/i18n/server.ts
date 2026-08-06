@@ -24,11 +24,7 @@ function resolve(obj: Messages, key: string): string | undefined {
 	return typeof cur === 'string' ? cur : undefined;
 }
 
-/**
- * Resolve an i18n key server-side, falling back to English then the key itself.
- * If the key does not look like a dot-path (no dot), it is returned as-is
- * so legacy hardcoded strings still work.
- */
+/** Resolves an i18n key server-side falling back to English then the key; a key without a dot is returned as-is */
 export async function serverT(key: string, locale = 'en'): Promise<string> {
 	if (!key.includes('.')) return key;
 	const messages = await loadLocale(locale);

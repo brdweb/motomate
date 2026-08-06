@@ -16,14 +16,33 @@ if (process.env.PUBLIC_DEMO_ENABLED === 'true') {
 	await seedDemo();
 }
 
+// adapter-node defaults to 512K, too small for uploads; must be set before handler.js loads it
+process.env.BODY_SIZE_LIMIT ??= '20971520';
+
 const { handler } = await import('./build/handler.js');
 
 const app = express();
 
-// Helmet CSP conflicts with SvelteKit's inline scripts, so we disable it. SvelteKit handles its own CSP via <meta> tags in app.html.
+// 'unsafe-inline' is needed by SvelteKit's bootstrap; upgrade-insecure-requests stays off or plain-HTTP LAN installs breaks
 app.use(
 	helmet({
-		contentSecurityPolicy: false
+		contentSecurityPolicy: {
+			useDefaults: false,
+			directives: {
+				'default-src': ["'self'"],
+				'script-src': ["'self'", "'unsafe-inline'"],
+				'style-src': ["'self'", "'unsafe-inline'"],
+				'img-src': ["'self'", 'data:', 'blob:', 'https://*.tile.openstreetmap.org'],
+				'font-src': ["'self'", 'data:'],
+				'connect-src': ["'self'"],
+				'worker-src': ["'self'"],
+				'manifest-src': ["'self'"],
+				'object-src': ["'none'"],
+				'base-uri': ["'self'"],
+				'form-action': ["'self'"],
+				'frame-ancestors': ["'none'"]
+			}
+		}
 	})
 );
 

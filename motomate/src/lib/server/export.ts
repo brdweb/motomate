@@ -9,7 +9,15 @@ import { getWorkflowRulesByUser } from '$lib/db/repositories/workflow.js';
 import { getNotifications } from '$lib/workflow/channels/inapp.js';
 import { getStorage } from '$lib/storage/index.js';
 
-export async function buildExportData(userId: string) {
+// Integration credentials are never part of a data export.
+function sanitizeProfile(profile: Record<string, unknown>): Record<string, unknown> {
+	const settings = profile.settings as Record<string, unknown> | undefined;
+	if (!settings?.integrations) return profile;
+	const { integrations: _integrations, ...rest } = settings;
+	return { ...profile, settings: rest };
+}
+
+async function buildExportData(userId: string) {
 	const [vehicles, templates, workflowRules, notifications] = await Promise.all([
 		getVehiclesByUser(userId, true),
 		getTemplatesByUser(userId),
@@ -53,7 +61,7 @@ export async function generateJsonExport(
 
 	const exportData = {
 		meta: { exportedAt: new Date().toISOString(), format: '1.0', userId },
-		profile: safeProfile,
+		profile: sanitizeProfile(safeProfile),
 		vehicles: vehicleData,
 		taskTemplates: templates,
 		workflowRules,
@@ -77,7 +85,7 @@ export async function generateZipExport(
 
 	const exportData = {
 		meta: { exportedAt: new Date().toISOString(), format: '1.0', userId },
-		profile: safeProfile,
+		profile: sanitizeProfile(safeProfile),
 		vehicles: vehicleData,
 		taskTemplates: templates,
 		workflowRules,

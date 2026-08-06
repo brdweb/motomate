@@ -20,6 +20,44 @@ export async function dispatchInApp(
 	});
 }
 
+// One open alert per subject, replaced while it keeps failing and removed once it works again.
+export async function raiseSystemAlert(
+	userId: string,
+	subject: string,
+	title: string,
+	body: string,
+	url: string
+): Promise<void> {
+	const type = `integration:${subject}`;
+	const existing = await db.query.notifications.findFirst({
+		where: and(eq(notifications.user_id, userId), eq(notifications.type, type))
+	});
+	if (existing) {
+		await db
+			.update(notifications)
+			.set({ title, body, read_at: null })
+			.where(eq(notifications.id, existing.id));
+		return;
+	}
+	await db.insert(notifications).values({
+		id: generateId(),
+		user_id: userId,
+		vehicle_id: null,
+		type,
+		title,
+		body,
+		data: { url }
+	});
+}
+
+export async function clearSystemAlert(userId: string, subject: string): Promise<void> {
+	await db
+		.delete(notifications)
+		.where(
+			and(eq(notifications.user_id, userId), eq(notifications.type, `integration:${subject}`))
+		);
+}
+
 export async function getUnreadCount(userId: string): Promise<number> {
 	const result = await db
 		.select({ total: count() })

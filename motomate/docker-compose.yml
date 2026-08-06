@@ -14,7 +14,6 @@ services:
       - PUBLIC_APP_ORIGINS=http://localhost
       - AUTH_SECRET=change-me-in-production-min-32-chars
       - DATABASE_URL=/app/data/motomate.db
-      - STORAGE_ADAPTER=local
       - STORAGE_LOCAL_PATH=/app/uploads
       - BODY_SIZE_LIMIT=20971520
     restart: unless-stopped

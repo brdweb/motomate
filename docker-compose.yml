@@ -10,8 +10,8 @@ services:
       - TZ=Europe/Amsterdam
       - PUBLIC_APP_URL=http://localhost:3000
       - PUBLIC_APP_ORIGINS=http://localhost
+      # Required. Generate with: "openssl rand -hex 32". Changing it later invalidates stored S3 and paperless credentials!
+      - AUTH_SECRET=${AUTH_SECRET:?set AUTH_SECRET in a .env file, generate with openssl rand -hex 32}
+      - AUTH_ALLOW_REGISTRATION=false
       - AUTH_COOKIE_SECURE=false
-      - AUTH_SECRET=change-me-in-production-min-32-chars
-      - STORAGE_ADAPTER=local
-      - BODY_SIZE_LIMIT=20971520
     restart: unless-stopped

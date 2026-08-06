@@ -1,4 +1,5 @@
 import { runWorkflowChecks } from '$lib/workflow/engine.js';
+import { runIntegrationSync } from './integrations.js';
 import { sqlite } from '$lib/db/index.js';
 
 const DEFAULT_INTERVAL_HOURS = 1;
@@ -22,6 +23,11 @@ export function initScheduler(): void {
 			await runWorkflowChecks();
 		} catch (err) {
 			console.error(`${ts()} [MotoMate] Scheduler workflow check failed:`, err);
+		}
+		try {
+			await runIntegrationSync();
+		} catch (err) {
+			console.error(`${ts()} [MotoMate] Scheduler integration sync failed:`, err);
 		}
 		try {
 			sqlite.pragma('optimize');

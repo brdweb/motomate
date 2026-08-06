@@ -3,16 +3,9 @@
 	import type { User } from '$lib/db/schema.js';
 	import { _ } from '$lib/i18n';
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
+	import { toasts } from '$lib/stores/toasts.svelte.js';
 
-	let { data, form } = $props<{
-		data: { user: User };
-		form: {
-			savedEmail?: boolean;
-			savedPassword?: boolean;
-			emailError?: string;
-			passwordError?: string;
-		} | null;
-	}>();
+	let { data } = $props<{ data: { user: User } }>();
 
 	let savingEmail = $state(false);
 	let savingPassword = $state(false);
@@ -46,22 +39,17 @@
 
 <svelte:head><title>{$_('settings.account.title')} · Settings</title></svelte:head>
 
-<h2 class="section-title">{$_('settings.account.title')}</h2>
-<p class="section-sub">{$_('settings.account.subtitle')}</p>
+<div class="intro">
+	<h2 class="section-title">{$_('settings.account.title')}</h2>
+	<p class="section-desc">{$_('settings.account.subtitle')}</p>
+</div>
 
 <!-- Email -->
 <section class="setting-section">
 	<h3 class="sub-title">{$_('settings.account.email.title')}</h3>
-	<p class="section-desc">
+	<p class="sub-desc">
 		{$_('settings.account.email.current', { values: { email: data.user.email } })}
 	</p>
-
-	{#if form?.savedEmail}
-		<div class="banner banner--ok">{$_('settings.account.email.saved')}</div>
-	{/if}
-	{#if form?.emailError}
-		<div class="banner banner--err">{form.emailError}</div>
-	{/if}
 
 	<form
 		method="POST"
@@ -69,9 +57,11 @@
 		class="pref-form"
 		use:enhance={() => {
 			savingEmail = true;
-			return async ({ update }) => {
+			return async ({ result, update }) => {
 				await update();
 				savingEmail = false;
+				if (result.type === 'success') toasts.success($_('settings.account.email.saved'));
+				else if (result.type === 'failure') toasts.error(String(result.data?.emailError ?? ''));
 			};
 		}}
 	>
@@ -98,13 +88,6 @@
 <section class="setting-section">
 	<h3 class="sub-title">{$_('settings.account.password.title')}</h3>
 
-	{#if form?.savedPassword}
-		<div class="banner banner--ok">{$_('settings.account.password.saved')}</div>
-	{/if}
-	{#if form?.passwordError}
-		<div class="banner banner--err">{form.passwordError}</div>
-	{/if}
-
 	<form
 		method="POST"
 		action="?/changePassword"
@@ -114,7 +97,12 @@
 			return async ({ result, update }) => {
 				await update();
 				savingPassword = false;
-				if (result.type === 'success') formElement.reset();
+				if (result.type === 'success') {
+					formElement.reset();
+					toasts.success($_('settings.account.password.saved'));
+				} else if (result.type === 'failure') {
+					toasts.error(String(result.data?.passwordError ?? ''));
+				}
 			};
 		}}
 	>
@@ -163,7 +151,7 @@
 <!-- Export data -->
 <section class="setting-section">
 	<h3 class="sub-title">{$_('settings.account.export.title')}</h3>
-	<p class="section-desc">{$_('settings.account.export.desc')}</p>
+	<p class="sub-desc">{$_('settings.account.export.desc')}</p>
 	<!-- svelte-ignore a11y_no_static_element_interactions -->
 	<div
 		class="export-wrap"
@@ -260,11 +248,14 @@
 		margin: 0 0 var(--space-2);
 		letter-spacing: -0.02em;
 	}
-	.section-sub {
+	.intro {
+		margin-bottom: var(--space-5);
+	}
+	.section-desc {
 		font-size: var(--text-sm);
 		color: var(--text-muted);
-		margin: 0 0 var(--space-6);
 		line-height: var(--leading-base);
+		margin: 0;
 	}
 	.sub-title {
 		font-size: var(--text-lg);
@@ -272,7 +263,7 @@
 		color: var(--text);
 		margin: 0 0 0.25rem;
 	}
-	.section-desc {
+	.sub-desc {
 		font-size: var(--text-sm);
 		color: var(--text-muted);
 		margin: 0 0 var(--space-4);
@@ -305,33 +296,19 @@
 	}
 	.input {
 		padding: 0.5rem 0.75rem;
-		border: 1px solid var(--border-strong);
-		border-radius: 10px;
+		border: 1px solid var(--border);
+		border-radius: 8px;
 		background: var(--bg-subtle);
 		color: var(--text);
-		font-size: var(--text-md);
+		font-size: max(1rem, 16px);
 		width: 100%;
+		transition: border-color 0.15s;
+		box-sizing: border-box;
 	}
 	.input:focus {
 		outline: 2px solid var(--accent);
 		outline-offset: 1px;
 		border-color: transparent;
-	}
-	.banner {
-		padding: 0.625rem 0.875rem;
-		border-radius: 10px;
-		font-size: var(--text-sm);
-		border: 1px solid;
-	}
-	.banner--ok {
-		background: color-mix(in srgb, var(--status-ok) 8%, transparent);
-		border-color: color-mix(in srgb, var(--status-ok) 25%, transparent);
-		color: var(--status-ok);
-	}
-	.banner--err {
-		background: color-mix(in srgb, var(--status-overdue) 8%, transparent);
-		border-color: color-mix(in srgb, var(--status-overdue) 25%, transparent);
-		color: var(--status-overdue);
 	}
 	.btn-secondary {
 		align-self: flex-start;

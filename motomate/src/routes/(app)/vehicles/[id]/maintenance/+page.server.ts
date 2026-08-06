@@ -11,28 +11,28 @@ import {
 } from '$lib/db/repositories/maintenance.js';
 import { isReminderTracker } from '$lib/utils/reminder-only.js';
 import { getVehicleById, recomputeCurrentOdometer } from '$lib/db/repositories/vehicles.js';
-import {
-	createServiceLog,
-	getServiceLogsByVehicle,
-	updateServiceLog
-} from '$lib/db/repositories/service-logs.js';
+import { createServiceLog, getServiceLogsByVehicle } from '$lib/db/repositories/service-logs.js';
 import { getOdometerLogs } from '$lib/db/repositories/vehicles.js';
+import { getDocumentsByVehicle } from '$lib/db/repositories/documents.js';
 import { CreateServiceLogSchema } from '$lib/validators/schemas.js';
 import { runWorkflowChecks } from '$lib/workflow/engine.js';
+import { applyServiceLogEdit } from '$lib/server/service-log-edit.js';
 import { addMonths, parseISO, formatISO } from 'date-fns';
 
 export const load: PageServerLoad = async ({ parent, locals }) => {
 	const { vehicle } = await parent();
 	const currentOdometer = await recomputeCurrentOdometer(vehicle.id, locals.user!.id);
 	const trackers = await recomputeTrackerStatuses(vehicle.id, currentOdometer);
-	const [odometerLogs, allServiceLogs] = await Promise.all([
+	const [odometerLogs, allServiceLogs, allDocs] = await Promise.all([
 		getOdometerLogs(vehicle.id, locals.user!.id),
-		getServiceLogsByVehicle(vehicle.id, locals.user!.id)
+		getServiceLogsByVehicle(vehicle.id, locals.user!.id),
+		getDocumentsByVehicle(vehicle.id, locals.user!.id)
 	]);
 	return {
 		trackers,
 		odometerLogs,
 		allServiceLogs,
+		allDocs,
 		page_prefs: locals.user!.settings?.page_prefs?.maintenance ?? null
 	};
 };
@@ -193,42 +193,9 @@ export const actions: Actions = {
 	},
 
 	editServiceLog: async ({ request, locals, params }) => {
-		const formData = await request.formData();
-		const raw = Object.fromEntries(formData);
-		const id = String(raw.id);
-
-		// Must use getAll(); Object.fromEntries drops duplicate keys for multi-checkboxes
-		const resetTrackerIds = formData.getAll('reset_trackers').map(String);
-
-		await updateServiceLog(id, params.id, locals.user!.id, {
-			performed_at: raw.performed_at ? String(raw.performed_at) : undefined,
-			odometer_at_service: raw.odometer_at_service ? Number(raw.odometer_at_service) : undefined,
-			cost_cents: raw.cost ? Math.round(Number(raw.cost) * 100) : undefined,
-			notes: raw.notes ? String(raw.notes) : undefined,
-			remark: raw.remark ? String(raw.remark) : undefined,
-			serviced_tracker_ids: resetTrackerIds.length > 0 ? resetTrackerIds : undefined
-		});
-		let vehicle: Awaited<ReturnType<typeof getVehicleById>>;
-		if (resetTrackerIds.length > 0) {
-			vehicle = await getVehicleById(params.id, locals.user!.id);
-			const odometer = raw.odometer_at_service
-				? Number(raw.odometer_at_service)
-				: (vehicle?.current_odometer ?? 0);
-			const performedAt = raw.performed_at
-				? String(raw.performed_at)
-				: new Date().toISOString().slice(0, 10);
-			for (const trackerId of resetTrackerIds) {
-				await updateTrackerState(trackerId, params.id, {
-					last_done_at: performedAt,
-					last_done_odometer: odometer
-				});
-			}
-		}
-
-		const trueOdo = await recomputeCurrentOdometer(params.id, locals.user!.id);
-		await recomputeTrackerStatuses(params.id, trueOdo);
-
-		return { logUpdated: true };
+		const result = await applyServiceLogEdit(await request.formData(), locals.user!.id, params.id);
+		if ('error' in result) return fail(result.status, { editError: result.error });
+		return { logUpdated: true, warning: result.warning };
 	},
 
 	// Apply default trackers based on service history

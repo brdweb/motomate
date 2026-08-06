@@ -29,6 +29,9 @@ RUN npm rebuild better-sqlite3
 # Build the application
 RUN npm run build && cp -r src/lib/db/demo-assets build/server/chunks/demo-assets
 
+# Drop devDependencies now that the build is donee
+RUN npm prune --omit=dev
+
 # Runtime stage
 FROM node:20-slim AS runtime
 
@@ -37,7 +40,7 @@ WORKDIR /app
 # Create directories for persistent data
 RUN mkdir -p /app/data /app/uploads
 
-# Copy node_modules from build stage (includes drizzle-kit and all deps)
+# Copy production node_modules from build stage (here I got devDependencies already pruned)
 COPY --from=build /app/node_modules ./node_modules
 
 # Copy build artifacts from build stage

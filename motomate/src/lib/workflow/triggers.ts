@@ -205,7 +205,7 @@ export function normalizeWorkflowTrigger(trigger: RuleTrigger): NormalizedWorkfl
 	}
 }
 
-export function getComparableTrackerMeasurement(
+function getComparableTrackerMeasurement(
 	vehicle: VehicleMeasurementSource,
 	tracker: TrackerMeasurementSource,
 	requiredBasis?: MeasurementBasis
@@ -242,27 +242,12 @@ export function getComparableTrackerMeasurement(
 	return null;
 }
 
-export function getTrackerMeasurementUnitLabel(unit: MeasurementUnit): string {
+function getTrackerMeasurementUnitLabel(unit: MeasurementUnit): string {
 	return unit;
 }
 
-export function getLegacyDistanceAliasValue(
-	measurement: ComparableTrackerMeasurement
-): number | null {
+function getLegacyDistanceAliasValue(measurement: ComparableTrackerMeasurement): number | null {
 	return measurement.basis === 'distance' ? measurement.absoluteDelta : null;
-}
-
-export function getDistanceTriggerPreviewWindowKm(
-	trigger: WorkflowMaintenanceTrigger,
-	trackerTemplate?: TrackerTemplateSource | null
-): number {
-	if (trigger.phase === 'upcoming') {
-		return trigger.threshold;
-	}
-
-	return trigger.threshold === 0
-		? 0
-		: Math.max(trigger.threshold, trackerTemplate?.interval_km ?? trigger.threshold);
 }
 
 function startOfUtcDay(input: Date | string): Date {

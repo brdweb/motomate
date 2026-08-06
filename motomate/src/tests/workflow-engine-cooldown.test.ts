@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { getCooldownHours, parseFiredAtMap, cooldownKey } from '$lib/workflow/engine-utils.js';
+import {
+	getCooldownHours,
+	parseFiredAtMap,
+	cooldownKey,
+	lastFiredAt
+} from '$lib/workflow/engine-utils.js';
 
 function hoursAgo(h: number): string {
 	return new Date(Date.now() - h * 3_600_000).toISOString();
@@ -143,5 +148,26 @@ describe('staleness decision', () => {
 		const cutoff = new Date(Date.now() - days * 86_400_000);
 		const recordedAt = '2026-05-31';
 		expect(new Date(recordedAt) < cutoff).toBe(true);
+	});
+});
+
+describe('lastFiredAt', () => {
+	it('reports the most recent entry in the cooldown map', () => {
+		const raw = JSON.stringify({
+			v1: '2026-07-24T06:43:52.243Z',
+			v2: '2026-07-24T06:43:52.247Z',
+			v3: '2026-01-02T10:00:00.000Z'
+		});
+		expect(lastFiredAt(raw)).toBe('2026-07-24T06:43:52.247Z');
+	});
+
+	it('returns null when the rule never fired', () => {
+		expect(lastFiredAt(null)).toBeNull();
+		expect(lastFiredAt('{}')).toBeNull();
+	});
+
+	it('returns null instead of an unparseable date', () => {
+		expect(lastFiredAt('not json')).toBeNull();
+		expect(lastFiredAt(JSON.stringify({ v1: 'whenever' }))).toBeNull();
 	});
 });

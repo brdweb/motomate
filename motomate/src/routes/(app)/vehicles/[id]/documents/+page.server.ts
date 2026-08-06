@@ -7,25 +7,17 @@ import {
 	getDocumentsByVehicle,
 	getDocumentsByVehicleTotal,
 	createDocument,
-	deleteDocument
+	deleteDocument,
+	getDocumentsByIds
 } from '$lib/db/repositories/documents.js';
 import { getServiceLogsByVehicle } from '$lib/db/repositories/service-logs.js';
 import { getTravelsByVehicle } from '$lib/db/repositories/travels.js';
 import { getStorage } from '$lib/storage/index.js';
-import { generateId } from '$lib/utils/id.js';
+import { onDocumentCreated, mirrorDelete } from '$lib/server/integrations.js';
+import { attachmentStorageKey } from '$lib/utils/storage.js';
 
 const MAX_SIZE = 10 * 1024 * 1024; // 10 MB
 const PER_PAGE = 10;
-
-function storageKey(userId: string, filename: string): string {
-	const ext =
-		filename
-			.split('.')
-			.pop()
-			?.replace(/[^a-zA-Z0-9]/g, '') ?? 'bin';
-	const id = generateId();
-	return `files/${userId}/${id}.${ext}`;
-}
 
 export const load: PageServerLoad = async ({ parent, locals, url }) => {
 	const { vehicle } = await parent();
@@ -90,7 +82,7 @@ export const actions: Actions = {
 		const doc_type = String(formData.get('doc_type') || 'other');
 		const expires_at = String(formData.get('expires_at') || '').trim() || undefined;
 
-		const key = storageKey(user.id, file.name);
+		const key = attachmentStorageKey(user.id, file.name);
 		const buffer = Buffer.from(await file.arrayBuffer());
 
 		try {
@@ -101,7 +93,7 @@ export const actions: Actions = {
 			return fail(500, { error: 'Upload failed — storage error' });
 		}
 
-		await createDocument(user.id, {
+		const doc = await createDocument(user.id, {
 			vehicle_id: vehicleId,
 			name: file.name, // original filename preserved
 			title,
@@ -111,6 +103,7 @@ export const actions: Actions = {
 			size_bytes: file.size,
 			expires_at
 		});
+		onDocumentCreated(user.id, doc);
 
 		return { uploaded: true };
 	},
@@ -118,15 +111,19 @@ export const actions: Actions = {
 	delete: async ({ request, locals }) => {
 		const data = await request.formData();
 		const id = String(data.get('id') ?? '');
-		const storageKeyVal = String(data.get('storage_key') ?? '');
 		if (!id) return fail(400, { error: 'Missing id' });
+
+		// Key comes from the owned record, never the form: a submitted storage_key would delete any file in uploads
+		const [doc] = await getDocumentsByIds([id], locals.user!.id);
+		if (!doc) return fail(404, { error: 'Document not found' });
+
+		await deleteDocument(id, locals.user!.id);
 		try {
-			const storage = getStorage();
-			await storage.delete(storageKeyVal);
+			await getStorage().delete(doc.storage_key);
 		} catch {
 			/* ignore storage errors */
 		}
-		await deleteDocument(id, locals.user!.id);
+		mirrorDelete(locals.user!.id, doc.storage_key);
 		return { deleted: true };
 	},
 

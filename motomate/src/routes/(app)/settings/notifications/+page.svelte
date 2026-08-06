@@ -4,6 +4,7 @@
 	import { untrack } from 'svelte';
 	import { _, waitLocale } from '$lib/i18n';
 	import { formatDateTime } from '$lib/utils/format';
+	import { toasts } from '$lib/stores/toasts.svelte.js';
 
 	let { data } = $props<{ data: PageData }>();
 
@@ -70,7 +71,7 @@ actions:
       milliseconds: 0`;
 	});
 
-	let saveStatus = $state<'idle' | 'saving' | 'saved'>('idle');
+	let saving = $state(false);
 
 	// Per-channel test state
 	type TestStatus = 'idle' | 'sending' | 'sent' | 'error';
@@ -156,20 +157,22 @@ actions:
 	<title>{$_('settings.notifications.title')} · {$_('layout.nav.settings')}</title>
 </svelte:head>
 
-<div class="section-header">
+<div class="intro">
 	<h2 class="section-title">{$_('settings.notifications.channels.title')}</h2>
-	<p class="section-sub">{$_('settings.notifications.subtitle')}</p>
+	<p class="section-desc">{$_('settings.notifications.subtitle')}</p>
 </div>
 
 <form
 	method="POST"
 	action="?/saveChannels"
 	use:enhance={() => {
-		saveStatus = 'saving';
-		return async ({ update }) => {
+		saving = true;
+		return async ({ result, update }) => {
 			await update({ reset: false });
-			saveStatus = 'saved';
-			setTimeout(() => (saveStatus = 'idle'), 2500);
+			saving = false;
+			if (result.type === 'success') toasts.success($_('settings.notifications.channels.saved'));
+			else if (result.type === 'failure')
+				toasts.error(String(result.data?.error ?? $_('settings.notifications.channels.testError')));
 		};
 	}}
 >
@@ -435,12 +438,8 @@ actions:
 	</div>
 
 	<div class="save-row">
-		<button type="submit" class="save-btn" disabled={saveStatus === 'saving'}>
-			{saveStatus === 'saving'
-				? $_('common.saving')
-				: saveStatus === 'saved'
-					? $_('settings.notifications.channels.saved')
-					: $_('settings.notifications.channels.saveBtn')}
+		<button type="submit" class="save-btn" disabled={saving}>
+			{saving ? $_('common.saving') : $_('settings.notifications.channels.saveBtn')}
 		</button>
 	</div>
 </form>
@@ -497,8 +496,8 @@ actions:
 
 <style>
 	/* Page sections */
-	.section-header {
-		margin-bottom: var(--space-4);
+	.intro {
+		margin-bottom: var(--space-5);
 	}
 	.section-title {
 		font-size: var(--text-2xl);
@@ -507,11 +506,11 @@ actions:
 		margin: 0 0 var(--space-2);
 		letter-spacing: -0.02em;
 	}
-	.section-sub {
+	.section-desc {
 		font-size: var(--text-sm);
 		color: var(--text-muted);
-		margin: 0 0 var(--space-4);
 		line-height: var(--leading-base);
+		margin: 0;
 	}
 
 	/* Channel cards */
@@ -584,7 +583,7 @@ actions:
 	}
 	.field-input {
 		width: 100%;
-		font-size: var(--text-md);
+		font-size: max(1rem, 16px);
 		padding: 0.5rem 0.75rem;
 		border: 1px solid var(--border);
 		border-radius: 8px;
@@ -839,7 +838,6 @@ actions:
 		font-size: var(--text-xs);
 		color: var(--text-subtle);
 		margin-top: 0.25rem;
-		font-family: var(--font-mono);
 		font-variant-numeric: tabular-nums;
 	}
 

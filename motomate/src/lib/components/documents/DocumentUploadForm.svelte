@@ -101,25 +101,23 @@
 		/>
 	</div>
 
-	<div class="form-row">
-		<div class="field">
-			<label for="doc-type" class="field-label">{$_('documents.category')}</label>
-			<select id="doc-type" name="doc_type" class="input">
-				<option value="service" selected>{$_('documents.types.service')}</option>
-				<option value="quotation">{$_('documents.types.quotation')}</option>
-				<option value="papers">{$_('documents.types.papers')}</option>
-				<option value="photo">{$_('documents.types.photo')}</option>
-				<option value="notes">{$_('documents.types.notes')}</option>
-				<option value="other">{$_('documents.types.other')}</option>
-			</select>
-		</div>
+	<div class="field">
+		<label for="doc-type" class="field-label">{$_('documents.category')}</label>
+		<select id="doc-type" name="doc_type" class="input">
+			<option value="service" selected>{$_('documents.types.service')}</option>
+			<option value="quotation">{$_('documents.types.quotation')}</option>
+			<option value="papers">{$_('documents.types.papers')}</option>
+			<option value="photo">{$_('documents.types.photo')}</option>
+			<option value="notes">{$_('documents.types.notes')}</option>
+			<option value="other">{$_('documents.types.other')}</option>
+		</select>
+	</div>
 
-		<div class="field">
-			<label for="expires-at" class="field-label">
-				{$_('documents.expiry')} <span class="label-hint">{$_('documents.expiryOptional')}</span>
-			</label>
-			<input type="date" id="expires-at" name="expires_at" class="input" />
-		</div>
+	<div class="field">
+		<label for="expires-at" class="field-label">
+			{$_('documents.expiry')} <span class="label-hint">{$_('documents.expiryOptional')}</span>
+		</label>
+		<input type="date" id="expires-at" name="expires_at" class="input" />
 	</div>
 
 	<div class="form-actions">
@@ -220,18 +218,6 @@
 		display: flex;
 		flex-direction: column;
 		gap: var(--space-1);
-	}
-
-	.form-row {
-		display: grid;
-		grid-template-columns: 1fr 1fr;
-		gap: var(--space-3);
-	}
-
-	@media (max-width: 480px) {
-		.form-row {
-			grid-template-columns: 1fr;
-		}
 	}
 
 	.field {

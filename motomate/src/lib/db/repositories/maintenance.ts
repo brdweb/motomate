@@ -417,12 +417,8 @@ const HOUR_PRESET_TEMPLATES_BY_TYPE = {
 } as const;
 
 // Backwards compat
-export const PRESET_TEMPLATES = PRESET_TEMPLATES_BY_TYPE.motorcycle;
 
-export function getPresetsForType(
-	type: string,
-	measurementUnit: MeasurementUnit = DEFAULT_ODOMETER_UNIT
-) {
+function getPresetsForType(type: string, measurementUnit: MeasurementUnit = DEFAULT_ODOMETER_UNIT) {
 	if (measurementUnit === 'h') {
 		return (
 			HOUR_PRESET_TEMPLATES_BY_TYPE[type as keyof typeof HOUR_PRESET_TEMPLATES_BY_TYPE] ??
@@ -753,8 +749,7 @@ export async function updateTrackerAfterService(
 		next_due_odometer = next_due_measurement;
 	}
 
-	// Clear per-rule notification cooldown on service — the tracker is being reset,
-	// so any new overdue crossing should fire a fresh notification.
+	// Clear the per-rule cooldown on service so a new overdue crossing notifies fresh
 	const currentState = (tracker.state as Record<string, unknown>) ?? {};
 	await db
 		.update(active_trackers)
@@ -994,8 +989,7 @@ export async function recomputeTrackerStatuses(
 
 		if (status !== t.status) {
 			fields.status = status;
-			// When the tracker returns to ok (entry corrected/deleted), reset the
-			// per-cycle notification record so the next due/overdue crossing notifies fresh.
+			// Back to ok means the entry was corrected, so reset the record for the next crossing
 			if (status === 'ok') {
 				fields.state = { ...((t.state as object) ?? {}), notified_by: {} };
 			}

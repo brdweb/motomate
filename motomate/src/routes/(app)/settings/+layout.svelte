@@ -15,6 +15,7 @@
 		{ href: '/settings/account', labelKey: 'settings.nav.account' },
 		{ href: '/settings/notifications', labelKey: 'settings.nav.notifications' },
 		{ href: '/settings/workflows', labelKey: 'settings.nav.workflows' },
+		{ href: '/settings/integrations', labelKey: 'settings.nav.integrations' },
 		{ href: '/settings/developer', labelKey: 'settings.nav.developer' }
 	];
 

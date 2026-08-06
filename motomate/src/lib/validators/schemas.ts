@@ -1,12 +1,10 @@
 import { z } from 'zod';
 import { DEFAULT_ODOMETER_UNIT, DISTANCE_UNITS, MEASUREMENT_UNITS } from '../utils/measurement.js';
 
-export const MeasurementUnitSchema = z.enum(MEASUREMENT_UNITS);
+const MeasurementUnitSchema = z.enum(MEASUREMENT_UNITS);
 const DistanceUnitSchema = z.enum(DISTANCE_UNITS);
 
-// Coercion helpers
-// Form data and preset objects can both produce null, undefined, or "" for
-// optional number fields. These preprocessors normalise that before validation.
+// Coercion helpers: form data and presets both produce null, undefined or "" for optional numbers
 
 /** Optional integer: null / undefined / "" > undefined; coerces strings to number */
 const optInt = (min?: number, max?: number) =>
@@ -128,6 +126,40 @@ const PagePrefsSchema = z.object({
 		.optional()
 });
 
+// http(s) only: a stored file:// or gopher:// endpoint would be handed straight to a server-side fetch.
+const optUrl = z
+	.string()
+	.url()
+	.max(500)
+	.refine((v) => v.startsWith('http://') || v.startsWith('https://'), 'URL must use http or https')
+	.optional()
+	.or(z.literal(''));
+
+export const IntegrationsSchema = z
+	.object({
+		s3: z
+			.object({
+				enabled: z.boolean(),
+				endpoint: optUrl,
+				region: z.string().max(64).optional(),
+				bucket: z.string().max(255).optional(),
+				access_key: z.string().max(255).optional(),
+				secret_key: z.string().max(2000).optional(),
+				last_sync_at: z.string().max(40).nullable().optional()
+			})
+			.optional(),
+		paperless: z
+			.object({
+				enabled: z.boolean(),
+				url: optUrl,
+				token: z.string().max(2000).optional(),
+				include_reports: z.boolean().optional(),
+				last_sync_at: z.string().max(40).nullable().optional()
+			})
+			.optional()
+	})
+	.optional();
+
 export const UserSettingsSchema = z.object({
 	theme: z.enum(['system', 'light', 'dark']).default('system'),
 	currency: z.string().length(3).default('EUR'),
@@ -138,7 +170,8 @@ export const UserSettingsSchema = z.object({
 	favorite_vehicle: z.string().nonempty().max(64).nullable().optional(),
 	avatar_key: z.string().max(500).nullable().optional(),
 	avatar_seed: z.string().max(64).nullable().optional(),
-	page_prefs: PagePrefsSchema.optional()
+	page_prefs: PagePrefsSchema.optional(),
+	integrations: IntegrationsSchema
 });
 
 export const CreateUserSchema = z.object({
@@ -155,7 +188,7 @@ export const MagicLinkRequestSchema = z.object({
 	email: z.string().email().toLowerCase().trim()
 });
 
-export const VehicleMetaSchema = z.object({
+const VehicleMetaSchema = z.object({
 	color: optStr(50),
 	notes: optStr(2000),
 	insurance_expires: z
@@ -262,7 +295,7 @@ export const RuleTriggerSchema = z.discriminatedUnion('type', [
 	z.object({ type: z.literal('document_expiring'), days_before: z.number().int().positive() })
 ]);
 
-export const RuleNotificationSchema = z.object({
+const RuleNotificationSchema = z.object({
 	title: z.string().min(1).max(200),
 	body: z.string().min(1).max(1000)
 });

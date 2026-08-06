@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import { untrack } from 'svelte';
+	import { SvelteSet } from 'svelte/reactivity';
 	import { sheet } from '$lib/stores/sheet.svelte.js';
 	import { _, waitLocale } from '$lib/i18n';
 	import { getMeasurementUnitTranslationKey } from '$lib/utils/measurement.js';
@@ -49,25 +50,24 @@
 	);
 
 	const docMap = $derived(new Map(allDocs.map((d) => [d.id, d])));
-	const attachedIds = $derived<string[]>((editLog.attachments as string[]) ?? []);
-	const resolvedAttachments = $derived(
-		attachedIds.map((id) => docMap.get(id)).filter(Boolean) as DocRecord[]
-	);
-	function unlinkedDocs() {
-		return allDocs.filter((d) => !attachedIds.includes(d.id));
-	}
 
-	const assignedTrackers = $derived(
-		trackers.filter(
-			(t) => editLog.tracker_id === t.id || (editLog.serviced_tracker_ids ?? []).includes(t.id)
-		)
+	// Seeded with what the log already has, so saving submits the kept list and drops removals
+	const keptDocIds = new SvelteSet<string>(untrack(() => editLog.attachments ?? []));
+	const resolvedAttachments = $derived(
+		[...keptDocIds].map((id) => docMap.get(id)).filter(Boolean) as DocRecord[]
 	);
+	const unlinkedDocs = $derived(allDocs.filter((d) => !keptDocIds.has(d.id)));
+
+	function isAssigned(trackerId: string) {
+		return (
+			editLog.tracker_id === trackerId || (editLog.serviced_tracker_ids ?? []).includes(trackerId)
+		);
+	}
 
 	let submitting = $state(false);
 	let editAttachFile = $state<File | null>(null);
 	let editAttachType = $state(untrack(() => 'service'));
 	let editShowLink = $state(false);
-	let editUploading = $state(false);
 
 	const docTypeEntries = Object.entries({
 		service: 'documents.types.service',
@@ -85,6 +85,10 @@
 	function clearEditAttach() {
 		editAttachFile = null;
 	}
+	function toggleLink(id: string) {
+		if (keptDocIds.has(id)) keptDocIds.delete(id);
+		else keptDocIds.add(id);
+	}
 </script>
 
 <div class="edit-wrap">
@@ -92,7 +96,13 @@
 		method="POST"
 		action="?/editServiceLog"
 		class="form"
-		use:enhance={() => {
+		enctype="multipart/form-data"
+		use:enhance={({ formData }) => {
+			if (editAttachFile) {
+				formData.set('attachment_file', editAttachFile);
+				formData.set('attachment_type', editAttachType);
+			}
+			for (const id of keptDocIds) formData.append('linked_doc_id', id);
 			submitting = true;
 			return async ({ result, update }) => {
 				await update();
@@ -127,13 +137,22 @@
 			</label>
 		</div>
 
-		{#if assignedTrackers.length > 0}
+		{#if trackers.length > 0}
 			<fieldset class="tracker-select">
-				<legend class="field-label">{$_('vehicle.forms.fields.usedTracker')}</legend>
+				<legend class="field-label">
+					{$_('vehicle.forms.fields.resetCycle', {
+						values: { optional: $_('vehicle.forms.fields.checkToReset') }
+					})}
+				</legend>
 				<div class="tracker-checkboxes">
-					{#each assignedTrackers as t (t.id)}
+					{#each trackers as t (t.id)}
 						<label class="tracker-checkbox">
-							<input type="checkbox" name="reset_trackers" value={t.id} checked={true} disabled />
+							<input
+								type="checkbox"
+								name="reset_trackers"
+								value={t.id}
+								checked={isAssigned(t.id)}
+							/>
 							<span class="tracker-check-label">
 								<span class="tracker-check-name">{t.template.name}</span>
 								{#if t.status === 'due'}
@@ -211,76 +230,58 @@
 						<span class="doc-chip-name"
 							>{doc.name.length > 24 ? doc.name.slice(0, 24) + '…' : doc.name}</span
 						>
-						<form method="POST" action="?/unlinkDocument" use:enhance>
-							<input type="hidden" name="service_log_id" value={editLog.id} />
-							<input type="hidden" name="document_id" value={doc.id} />
-							<button type="submit" class="doc-chip-remove" aria-label="Remove">×</button>
-						</form>
+						<button
+							type="button"
+							class="doc-chip-remove"
+							onclick={() => toggleLink(doc.id)}
+							aria-label="Remove">×</button
+						>
 					</span>
 				{/each}
 			</div>
 		{/if}
 
 		<div class="attach-actions">
-			<form
-				method="POST"
-				action="?/uploadToLog"
-				enctype="multipart/form-data"
-				use:enhance={({ formData }) => {
-					if (editAttachFile) formData.set('file', editAttachFile);
-					editUploading = true;
-					return async ({ update }) => {
-						await update();
-						editUploading = false;
-						editAttachFile = null;
-					};
-				}}
-			>
-				<input type="hidden" name="service_log_id" value={editLog.id} />
-				{#if editAttachFile}
-					<span class="doc-chip">
-						<span class="doc-chip-name">{editAttachFile.name}</span>
-						<button
-							type="button"
-							class="doc-chip-remove"
-							onclick={clearEditAttach}
-							aria-label="Remove">×</button
-						>
-					</span>
-					<select name="doc_type" class="input attach-type" bind:value={editAttachType}>
-						{#each docTypeEntries as [val, key] (val)}
-							<option value={val}>{$_(key)}</option>
-						{/each}
-					</select>
-					<button type="submit" class="attach-save" disabled={editUploading}>
-						{editUploading ? $_('vehicle.forms.attachments.uploading') : $_('common.save')}
-					</button>
-				{:else}
-					<label class="attach-action-btn">
-						<svg
-							width="13"
-							height="13"
-							viewBox="0 0 24 24"
-							fill="none"
-							stroke="currentColor"
-							stroke-width="2"
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							aria-hidden="true"
-							><path
-								d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"
-							/></svg
-						>
-						{$_('vehicle.forms.attachFile')}
-						<input
-							type="file"
-							class="attach-file-input"
-							accept="image/*,.pdf,.doc,.docx,.xls,.xlsx"
-							onchange={handleEditAttachPick}
-						/>
-					</label>
-				{/if}
-			</form>
+			{#if editAttachFile}
+				<span class="doc-chip">
+					<span class="doc-chip-name">{editAttachFile.name}</span>
+					<button
+						type="button"
+						class="doc-chip-remove"
+						onclick={clearEditAttach}
+						aria-label="Remove">×</button
+					>
+				</span>
+				<select class="input attach-type" bind:value={editAttachType}>
+					{#each docTypeEntries as [val, key] (val)}
+						<option value={val}>{$_(key)}</option>
+					{/each}
+				</select>
+			{:else}
+				<label class="attach-action-btn">
+					<svg
+						width="13"
+						height="13"
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="2"
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						aria-hidden="true"
+						><path
+							d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"
+						/></svg
+					>
+					{$_('vehicle.forms.attachFile')}
+					<input
+						type="file"
+						class="attach-file-input"
+						accept="image/*,.pdf,.doc,.docx,.xls,.xlsx"
+						onchange={handleEditAttachPick}
+					/>
+				</label>
+			{/if}
 
 			<button
 				type="button"
@@ -306,7 +307,7 @@
 		</div>
 
 		{#if editShowLink}
-			{@const available = unlinkedDocs()}
+			{@const available = unlinkedDocs}
 			<div class="link-picker">
 				<div class="link-picker-header">
 					<span class="link-picker-title">{$_('vehicle.forms.attachments.pickerTitle')}</span>
@@ -320,14 +321,10 @@
 					<ul class="link-picker-list">
 						{#each available as doc (doc.id)}
 							<li>
-								<form method="POST" action="?/linkDocument" use:enhance>
-									<input type="hidden" name="service_log_id" value={editLog.id} />
-									<input type="hidden" name="document_id" value={doc.id} />
-									<button type="submit" class="link-picker-item">
-										<span class="doc-chip-type">{$_('documents.types.' + doc.doc_type)}</span>
-										<span class="link-picker-item-name">{doc.name}</span>
-									</button>
-								</form>
+								<button type="button" class="link-picker-item" onclick={() => toggleLink(doc.id)}>
+									<span class="doc-chip-type">{$_('documents.types.' + doc.doc_type)}</span>
+									<span class="link-picker-item-name">{doc.name}</span>
+								</button>
 							</li>
 						{/each}
 					</ul>
@@ -350,16 +347,11 @@
 		gap: var(--space-4);
 	}
 
+	/* The sheet is 420px on desktop, so paired fields stack rather than share a row */
 	.form-row {
-		display: grid;
-		grid-template-columns: 1fr 1fr;
-		gap: var(--space-3);
-	}
-
-	@media (max-width: 480px) {
-		.form-row {
-			grid-template-columns: 1fr;
-		}
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-4);
 	}
 
 	.field {
@@ -543,21 +535,6 @@
 	.attach-type {
 		min-height: 36px;
 		padding: 0.375rem 0.5rem;
-	}
-
-	.attach-save {
-		padding: 0.375rem 0.75rem;
-		background: var(--accent);
-		color: #fff;
-		border: none;
-		border-radius: 8px;
-		font-size: var(--text-sm);
-		cursor: pointer;
-	}
-
-	.attach-save:disabled {
-		opacity: 0.6;
-		cursor: not-allowed;
 	}
 
 	.attach-chips {

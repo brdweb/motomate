@@ -516,11 +516,20 @@
 				"imageTooLarge": "Imagen demasiado grande (máx. 2 MB)",
 				"invalidImageFormat": "Formato de imagen no válido. Compatible: JPEG, PNG, WebP, GIF",
 				"invalidFileExt": "Extensión de archivo no válida. Compatible: .jpg, .jpeg, .png, .webp, .gif",
-				"uploadFailed": "Error al subir: error de almacenamiento"
+				"uploadFailed": "Error al subir: error de almacenamiento",
+				"chooseDistanceUnit": "Elige kilómetros o millas.",
+				"notDistanceConvertible": "Este vehículo no se puede convertir a una unidad de distancia."
 			},
 			"measurementUnit": {
 				"title": "Unidad de medida",
-				"locked": "Bloqueada tras la creación"
+				"locked": "Bloqueada tras la creación",
+				"eyebrow": "Lectura actual",
+				"summary": "Convierte juntos todos los datos guardados.",
+				"review": "Revisar conversión",
+				"converted": "Valores de distancia convertidos",
+				"dialogTitle": "¿Convertir {from} a {to}?",
+				"dialogDescription": "Tu lectura actual pasará a ser {value} {unit}. El historial del odómetro, los registros de servicio, los intervalos de mantenimiento y los recordatorios por distancia se mantendrán alineados.",
+				"confirm": "Convertir distancias"
 			},
 			"usageUpdated": "Uso actualizado"
 		},
@@ -719,10 +728,11 @@
 			"notSet": "No establecido",
 			"addHint": "Añadir en Configuración → Compra & Venta",
 			"expenses": "Gastos",
-			"transactions": "{count} transacción",
+			"transactions": "{count, plural, one {# transacción} other {# transacciones}}",
 			"transactions_plural": "{count} transacciones",
 			"totalInvested": "Total invertido",
-			"soldFor": "Vendido por"
+			"soldFor": "Vendido por",
+			"currencyCount": "{count, plural, one {# moneda} other {# monedas}}"
 		},
 		"form": {
 			"addTitle": "Añadir",
@@ -957,7 +967,11 @@
 			"confirmDeleteDesc": "¿Eliminar la regla \"{name}\"? Esta acción no se puede deshacer.",
 			"runCheck": "Verificar ahora",
 			"runCheckDone": "Verificación completada",
-			"subtitle": "Reglas automatizadas para mantenimiento y recordatorios."
+			"subtitle": "Reglas automatizadas para mantenimiento y recordatorios.",
+			"actions": {
+				"title": "Acciones de reglas",
+				"description": "Ejecuta la comprobación programada ahora o restaura las reglas predeterminadas."
+			}
 		},
 		"notifications": {
 			"title": "Notificaciones",
@@ -1043,7 +1057,8 @@
 			"sourceCode": "Codigo fuente",
 			"reportIssue": "Reportar un problema",
 			"tapAgain": "Toca de nuevo para abrir",
-			"changelog": "Changelog"
+			"changelog": "Changelog",
+			"integrations": "Integraciones"
 		},
 		"changelog": {
 			"title": "¿Qué hay de nuevo?",
@@ -1108,6 +1123,52 @@
 				"link": "Ver documentación",
 				"specLink": "Spec OpenAPI sin procesar"
 			}
+		},
+		"integrations": {
+			"title": "Integraciones",
+			"description": "MotoMate siempre guarda tus archivos en este servidor. Estos destinos opcionales reciben una copia.",
+			"storedPlaceholder": "Guardado, dejalo vacio para mantenerlo",
+			"test": "Probar conexion",
+			"testOk": "La conexion funciona",
+			"never": "Nunca",
+			"lastSync": "Ultima sincronizacion: {date}",
+			"s3": {
+				"label": "Copia en S3",
+				"description": "Replica documentos e imagenes en cualquier bucket compatible con S3, incluidos MinIO, SeaweedFS, Garage y Backblaze B2.",
+				"endpointLabel": "Endpoint",
+				"endpointHint": "Dejalo vacio para AWS S3. Los proveedores autoalojados como MinIO o SeaweedFS necesitan la URL completa.",
+				"regionLabel": "Region",
+				"bucketLabel": "Bucket",
+				"accessKeyLabel": "Clave de acceso",
+				"secretKeyLabel": "Clave secreta"
+			},
+			"paperless": {
+				"label": "Paperless-ngx",
+				"description": "Envia una copia de cada documento subido a tu archivo paperless-ngx para OCR y busqueda de texto completo.",
+				"urlLabel": "URL del servidor",
+				"tokenLabel": "Token de API",
+				"tokenHint": "Crea uno en paperless-ngx en Ajustes y luego Tokens de API.",
+				"includeReportsLabel": "Archivar tambien los informes de mantenimiento",
+				"includeReportsHint": "Los informes generados por MotoMate se omiten por defecto porque puedes volver a generarlos. Activa esto para conservarlos tambien en paperless."
+			},
+			"sync": {
+				"title": "Sincronizar todo",
+				"description": "Los archivos anteriores a la activacion aun no se han copiado. Ejecutalo una vez tras configurar y de nuevo si algo falla.",
+				"button": "Sincronizar todo",
+				"running": "Sincronizando",
+				"failed": "{count} elemento(s) fallaron. Corrige la causa y vuelve a ejecutarlo.",
+				"skipped": "{count} documento(s) no enviado(s) a paperless.",
+				"reason": {
+					"unsupported": "tipo de archivo no admitido por paperless",
+					"report": "informe generado, no archivado"
+				},
+				"resultS3": "{uploaded} subidos, {skipped} ya en el bucket.",
+				"resultPaperless": "{pushed} enviados a paperless, {already} ya archivados.",
+				"resend": "Enviar todo de nuevo",
+				"resendHint": "Usalo despues de vaciar tu archivo de paperless: ignora lo que ya se envio."
+			},
+			"saved": "Ajustes guardados",
+			"saveFailed": "No se pudieron guardar los ajustes"
 		}
 	},
 	"units": {
@@ -1160,7 +1221,8 @@
 			"title": "Notificaciones",
 			"empty": "Sin nuevas notificaciones",
 			"viewAll": "Ver todas",
-			"error": "No se pudieron cargar las notificaciones"
+			"error": "No se pudieron cargar las notificaciones",
+			"clearAll": "Borrar todo"
 		}
 	},
 	"notifications": {
@@ -1183,6 +1245,16 @@
 		"odometerNudge": {
 			"title": "Actualiza tu odómetro",
 			"body": "¿Has conducido {{vehicle_name}} recientemente? Actualiza el odómetro para mantener precisos tus registros de mantenimiento."
+		},
+		"integration": {
+			"s3": {
+				"title": "La copia en S3 esta fallando",
+				"body": "MotoMate no pudo copiar tus archivos al bucket. Revisa la conexion en Ajustes, Integraciones."
+			},
+			"paperless": {
+				"title": "El archivado en paperless esta fallando",
+				"body": "MotoMate no pudo enviar un documento a paperless-ngx. Revisa la conexion en Ajustes, Integraciones."
+			}
 		}
 	},
 	"travels": {
@@ -1273,7 +1345,8 @@
 			"title": "Gastos",
 			"modMonthly": "Mensual",
 			"modCumulative": "Acumulado",
-			"viewDetails": "Ver gastos"
+			"viewDetails": "Ver gastos",
+			"currencyNote": "El gráfico muestra solo {currency}. No incluido: {excluded}."
 		},
 		"empty": {
 			"title": "Sin datos aún",

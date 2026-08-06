@@ -6,7 +6,7 @@ import type { InsertWorkflowRule, WorkflowRule, RuleTrigger } from '../schema.js
 import { generateId } from '../../utils/id.js';
 import { PRESET_RULES } from '../../workflow/rules.js';
 
-export async function createWorkflowRule(userId: string, input: unknown): Promise<WorkflowRule> {
+async function createWorkflowRule(userId: string, input: unknown): Promise<WorkflowRule> {
 	const parsed = CreateWorkflowRuleSchema.parse(input);
 	const id = generateId();
 	const row: InsertWorkflowRule = { ...parsed, id, user_id: userId };

@@ -47,8 +47,9 @@ export const actions: Actions = {
 			return fail(403, { error: errors.registrationClosed, email: '' });
 		}
 
+		// Coarse: behind a proxy this bucket is shared by every visitor, so it cannot be tight.
 		const ip = getClientAddress();
-		if (!rateLimit(`register:${ip}`, 5, 60 * 60_000)) {
+		if (!rateLimit(`register:ip:${ip}`, 50, 60 * 60_000)) {
 			return fail(429, { error: errors.rateLimited, email: '' });
 		}
 
@@ -67,6 +68,10 @@ export const actions: Actions = {
 			return fail(400, { error: msg, email: String(data.email ?? '') });
 		}
 
+		if (!rateLimit(`register:email:${parsed.data.email}`, 5, 60 * 60_000)) {
+			return fail(429, { error: errors.rateLimited, email: parsed.data.email });
+		}
+
 		if (!parsed.data.password) {
 			return fail(400, { error: errors.passwordRequired, email: parsed.data.email });
 		}
@@ -80,8 +85,7 @@ export const actions: Actions = {
 			});
 		}
 
-		// Hash before the existence check so response time is constant regardless
-		// of whether the email is already registered (timing oracle prevention).
+		// Hash before the existence check so response time is constant and cannot enumerate emails
 		const password_hash = await hash(parsed.data.password, {
 			memoryCost: 19456,
 			timeCost: 2,

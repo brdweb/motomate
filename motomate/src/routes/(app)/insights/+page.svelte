@@ -3,7 +3,8 @@
 	import { untrack } from 'svelte';
 	import { beforeNavigate, goto } from '$app/navigation';
 	import { page } from '$app/state';
-	import { formatCurrency, formatNumber } from '$lib/utils/format.js';
+	import { formatCurrency, formatMoneyTotal, formatNumber } from '$lib/utils/format.js';
+	import { primaryCurrency, totalByCurrency } from '$lib/utils/money.js';
 	import { _ } from '$lib/i18n';
 	import LineChart from '$lib/components/charts/LineChart.svelte';
 	import BarChart from '$lib/components/charts/BarChart.svelte';
@@ -54,7 +55,7 @@
 	);
 
 	const filteredFinance = $derived(
-		data.financeTransactions
+		data.expenses
 			.filter((t) => selectedVehicleId === 'all' || t.vehicle_id === selectedVehicleId)
 			.filter((t) => !cutoffDate || t.performed_at >= cutoffDate)
 			.sort((a, b) => a.performed_at.localeCompare(b.performed_at))
@@ -88,10 +89,28 @@
 		return result;
 	});
 
+	const totalCostMoney = $derived(
+		totalByCurrency(
+			filteredFinance.map((t) => ({ amountCents: t.amount_cents, currency: t.currency })),
+			currency
+		)
+	);
+
+	// Charts plot a single currency; prefer the profile currency, else the largest subtotal
+	const costCurrency = $derived(primaryCurrency(totalCostMoney, currency));
+
+	const excludedTotals = $derived(
+		totalCostMoney.mixed ? totalCostMoney.subtotals.filter((s) => s.currency !== costCurrency) : []
+	);
+
+	const chartEntries = $derived(
+		filteredFinance.filter((t) => (t.currency || currency) === costCurrency)
+	);
+
 	const costPoints = $derived.by(() => {
-		if (filteredFinance.length === 0) return [];
+		if (chartEntries.length === 0) return [];
 		const byMonth = new Map<string, number>();
-		for (const t of filteredFinance) {
+		for (const t of chartEntries) {
 			const ym = t.performed_at.slice(0, 7);
 			byMonth.set(ym, (byMonth.get(ym) ?? 0) + t.amount_cents);
 		}
@@ -134,7 +153,7 @@
 	});
 
 	const costFormatter = $derived.by(
-		() => (v: number) => formatCurrency(Math.round(v * 100), currency, locale)
+		() => (v: number) => formatCurrency(Math.round(v * 100), costCurrency, locale)
 	);
 
 	function drillDownCost(label: string) {
@@ -142,7 +161,7 @@
 			goto('/vehicles/' + selectedVehicleId + '/finance');
 			return;
 		}
-		const txInMonth = data.financeTransactions.filter((t) => t.performed_at.startsWith(label));
+		const txInMonth = chartEntries.filter((t) => t.performed_at.startsWith(label));
 		if (txInMonth.length > 0) selectedVehicleId = txInMonth[0].vehicle_id;
 	}
 
@@ -296,7 +315,7 @@
 			<div class="chart-card-title-group">
 				<h2 class="chart-title">{$_('insights.costs.title')}</h2>
 				{#if totalCost > 0}
-					<span class="chart-stat mono">{formatCurrency(totalCost, currency, locale)}</span>
+					<span class="chart-stat mono">{formatMoneyTotal(totalCostMoney, locale)}</span>
 				{/if}
 			</div>
 			<ViewToggle
@@ -308,6 +327,18 @@
 				onchange={(v) => (costMode = v as typeof costMode)}
 			/>
 		</div>
+		{#if excludedTotals.length > 0}
+			<p class="chart-note">
+				{$_('insights.costs.currencyNote', {
+					values: {
+						currency: costCurrency,
+						excluded: excludedTotals
+							.map((s) => formatCurrency(s.cents, s.currency, locale))
+							.join(' · ')
+					}
+				})}
+			</p>
+		{/if}
 		{#if costPoints.length === 0}
 			<div class="chart-empty">
 				<p class="chart-empty-title">{$_('insights.empty.title')}</p>

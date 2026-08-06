@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { PageData } from './$types';
+	import type { MoneyTotal } from '$lib/utils/money.js';
 	import { untrack, tick } from 'svelte';
-	import { enhance } from '$app/forms';
 	import { page } from '$app/state';
 	import { replaceState, beforeNavigate } from '$app/navigation';
 	import { formatCurrency, formatDateShort, formatMeasurement } from '$lib/utils/format.js';
@@ -40,6 +40,26 @@
 		});
 	}
 
+	function openEditForm(tx: FinanceTx) {
+		entryMenu = null;
+		sheet.openSheet(TransactionForm, $_('finance.form.editTitle'), {
+			vehicleId: data.vehicle.id,
+			locale,
+			currency,
+			odometerUnit: data.vehicle.odometer_unit,
+			allDocs: data.allDocs ?? [],
+			editData: {
+				id: tx.id,
+				category: tx.category ?? 'other',
+				amount_cents: tx.amountCents,
+				performed_at: tx.date,
+				odometer_at_transaction: tx.odometer,
+				notes: tx.notes,
+				attachments: tx.attachments ?? []
+			}
+		});
+	}
+
 	// Handle ?quick=finance from mobile FAB quick-add flow
 	$effect(() => {
 		if (page.url.searchParams.get('quick') === 'finance') {
@@ -57,8 +77,7 @@
 		if (!editId) return;
 		const tx = data.allTransactions.find((t) => t.id === editId && t.type === 'finance');
 		if (tx) {
-			prepareEdit(tx);
-			startEdit(tx.id, 'finance');
+			openEditForm(tx as FinanceTx);
 			highlightId = editId;
 			setTimeout(() => (highlightId = null), 1800);
 			tick().then(() => {
@@ -244,29 +263,6 @@
 		_prefTimer = setTimeout(flushPrefs, 600);
 	});
 
-	// Attachment state for edit form
-	let editAttachFile = $state<File | null>(null);
-	let editAttachType = $state('other');
-	let editShowLink = $state(false);
-	let editUploading = $state(false);
-
-	const docTypeEntries = Object.entries({
-		service: 'documents.types.service',
-		quotation: 'documents.types.quotation',
-		papers: 'documents.types.papers',
-		photo: 'documents.types.photo',
-		notes: 'documents.types.notes',
-		other: 'documents.types.other'
-	});
-
-	function handleEditAttachPick(e: Event) {
-		const input = e.target as HTMLInputElement;
-		editAttachFile = input.files?.[0] ?? null;
-	}
-	function clearEditAttach() {
-		editAttachFile = null;
-	}
-
 	const docMap = $derived(new Map((data.allDocs ?? []).map((d) => [d.id, d])));
 
 	type FinanceTx = Extract<(typeof data.allTransactions)[number], { type: 'finance' }>;
@@ -276,39 +272,12 @@
 			ReturnType<typeof docMap.get>
 		>[];
 	}
-	function unlinkedDocs(tx: FinanceTx) {
-		const attached = new Set(tx.attachments ?? []);
-		return (data.allDocs ?? []).filter((d) => !attached.has(d.id));
-	}
-
 	// Entry menu state
 	let entryMenu = $state<string | null>(null);
-	let editingEntry = $state<{ id: string; type: 'finance' } | null>(null);
-	let editSubmitting = $state(false);
 	let deletingEntry = $state<{ id: string; type: 'finance' } | null>(null);
 
 	function toggleEntryMenu(id: string) {
 		entryMenu = entryMenu === id ? null : id;
-	}
-
-	function startEdit(id: string, type: 'finance') {
-		editingEntry = { id, type };
-		entryMenu = null;
-	}
-
-	// Edit form state
-	let editCategory = $state('maintenance');
-	let editAmount = $state('');
-	let editDate = $state('');
-	let editOdometer = $state<string>('');
-	let editNotes = $state('');
-
-	function prepareEdit(tx: (typeof data.allTransactions)[number]) {
-		editCategory = tx.category || 'other';
-		editAmount = tx.amountCents ? (tx.amountCents / 100).toFixed(2) : '';
-		editDate = tx.date;
-		editOdometer = tx.odometer ? String(tx.odometer) : '';
-		editNotes = tx.notes || '';
 	}
 
 	// Empty state check
@@ -336,10 +305,8 @@
 		return opt?.label ?? key.charAt(0).toUpperCase() + key.slice(1);
 	}
 
-	function getProfitLossLabel(cents: number | null) {
-		if (cents === null) return '';
-		if (cents >= 0) return $_('finance.gain');
-		return $_('finance.loss');
+	function getProfitLossLabel(cents: number) {
+		return cents >= 0 ? $_('finance.gain') : $_('finance.loss');
 	}
 
 	function getTransactionTitle(tx: (typeof data.allTransactions)[number]) {
@@ -355,27 +322,27 @@
 	// Compute grouped data based on selection
 	const groupedData = $derived.by(() => {
 		if (groupBy === 'category') {
-			const items = (data.byCategory || []).map(([key, cents]) => ({
+			const items = (data.byCategory || []).map(([key, total]) => ({
 				label: getCategoryLabel(key),
-				cents,
+				total,
 				key
 			}));
 			return { label: $_('finance.byCategory'), items };
 		}
 		if (groupBy === 'year') {
 			const items = (data.byYear || [])
-				.map(([year, cents]) => ({
+				.map(([year, total]) => ({
 					label: formatYear(year),
-					cents,
+					total,
 					key: year.toString()
 				}))
 				.sort((a, b) => b.key.localeCompare(a.key));
 			return { label: $_('finance.byYear'), items };
 		}
 		if (groupBy === 'description') {
-			const items = (data.byDescription || []).map(([desc, cents]) => ({
+			const items = (data.byDescription || []).map(([desc, total]) => ({
 				label: desc,
-				cents,
+				total,
 				key: desc
 			}));
 			return { label: $_('finance.byDescription'), items };
@@ -394,18 +361,9 @@
 			}
 			if (f?.edited) {
 				toasts.success($_('finance.transactionUpdated'));
-				editingEntry = null;
 			}
 		});
 	});
-
-	function scrollOnMount(node: HTMLElement) {
-		if (typeof window !== 'undefined' && window.matchMedia('(max-width: 768px)').matches) {
-			requestAnimationFrame(() => {
-				node.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-			});
-		}
-	}
 </script>
 
 <svelte:head><title>{$_('finance.title')} · {data.vehicle.name}</title></svelte:head>
@@ -436,6 +394,25 @@
 			</button>
 		</div>
 	{:else}
+		{#snippet moneyStat(total: MoneyTotal, showCount = false)}
+			{#if total.mixed}
+				{#if showCount}
+					<span class="money-eyebrow"
+						>{$_('finance.investment.currencyCount', {
+							values: { count: total.subtotals.length }
+						})}</span
+					>
+				{/if}
+				<span class="money-stack">
+					{#each total.subtotals as s (s.currency)}
+						<span>{formatCurrency(s.cents, s.currency, locale)}</span>
+					{/each}
+				</span>
+			{:else}
+				{formatCurrency(total.cents, total.currency, locale)}
+			{/if}
+		{/snippet}
+
 		<!-- Investment summary -->
 		<div class="investment-grid">
 			{#if hasPurchasePrice}
@@ -458,7 +435,7 @@
 			<div class="invest-card">
 				<div class="invest-label select-none">{$_('finance.investment.expenses')}</div>
 				<div class="invest-amount invest-amount--neutral mono">
-					{formatCurrency(data.totalCents, currency, locale)}
+					{@render moneyStat(data.total, true)}
 				</div>
 				<div class="invest-meta">
 					{$_('finance.investment.transactions', { values: { count: data.totalEntries } })}
@@ -469,7 +446,7 @@
 				<div class="invest-card">
 					<div class="invest-label select-none">{$_('finance.investment.totalInvested')}</div>
 					<div class="invest-amount invest-amount--total mono">
-						{formatCurrency(data.totalInvestmentCents, currency, locale)}
+						{@render moneyStat(data.totalInvestment, true)}
 					</div>
 				</div>
 			{/if}
@@ -482,22 +459,24 @@
 					</div>
 				</div>
 
-				<div class="invest-card invest-card--profit-loss">
-					<div class="invest-label">
-						{getProfitLossLabel(data.profitLossCents)}
+				{#if data.profitLoss}
+					<div class="invest-card invest-card--profit-loss">
+						<div class="invest-label">
+							{getProfitLossLabel(data.profitLoss.cents)}
+						</div>
+						<div
+							class="invest-amount mono"
+							class:invest-amount--profit={data.profitLoss.cents >= 0}
+							class:invest-amount--loss={data.profitLoss.cents < 0}
+						>
+							{data.profitLoss.cents >= 0 ? '+' : ''}{formatCurrency(
+								data.profitLoss.cents,
+								data.profitLoss.currency,
+								locale
+							)}
+						</div>
 					</div>
-					<div
-						class="invest-amount mono"
-						class:invest-amount--profit={data.profitLossCents! >= 0}
-						class:invest-amount--loss={data.profitLossCents! < 0}
-					>
-						{data.profitLossCents! >= 0 ? '+' : ''}{formatCurrency(
-							data.profitLossCents!,
-							currency,
-							locale
-						)}
-					</div>
-				</div>
+				{/if}
 			{/if}
 		</div>
 
@@ -573,7 +552,7 @@
 						<div class="grouped-row">
 							<span class="grouped-label">{item.label}</span>
 							<span class="grouped-amount mono">
-								{formatCurrency(item.cents, currency, locale)}
+								{@render moneyStat(item.total)}
 							</span>
 						</div>
 					{/each}
@@ -648,7 +627,7 @@
 											</td>
 										{:else if col.key === 'amount'}
 											<td class="tx-td mono tx-td--right"
-												>{formatCurrency(tx.amountCents, currency, locale)}</td
+												>{formatCurrency(tx.amountCents, tx.currency, locale)}</td
 											>
 										{:else if col.key === 'attachments'}
 											<td class="tx-td tx-td--center">
@@ -682,10 +661,7 @@
 														<button
 															role="menuitem"
 															class="entry-menu-item"
-															onclick={() => {
-																prepareEdit(tx);
-																startEdit(tx.id, 'finance');
-															}}>{$_('common.edit')}</button
+															onclick={() => openEditForm(tx)}>{$_('common.edit')}</button
 														>
 														<button
 															role="menuitem"
@@ -701,97 +677,6 @@
 										{/if}
 									</td>
 								</tr>
-								{#if editingEntry?.id === tx.id && tx.type === 'finance'}
-									<tr class="tx-row-edit">
-										<td colspan="99" class="tx-td-edit">
-											<div class="entry-edit-form">
-												<form
-													method="POST"
-													action="?/editTransaction"
-													use:enhance={() => {
-														editSubmitting = true;
-														return async ({ update }) => {
-															await update();
-															editSubmitting = false;
-															editAttachFile = null;
-															editShowLink = false;
-														};
-													}}
-												>
-													<input type="hidden" name="id" value={tx.id} />
-													<div class="form-row">
-														<label class="field">
-															<span class="field-label">{$_('finance.form.category')}</span>
-															<select name="category" bind:value={editCategory} class="input">
-																{#each categoryOptions as opt}<option value={opt.value}
-																		>{opt.label}</option
-																	>{/each}
-															</select>
-														</label>
-														<label class="field">
-															<span class="field-label"
-																>{$_('finance.form.amount', { values: { currency } })}</span
-															>
-															<input
-																type="number"
-																name="amount"
-																bind:value={editAmount}
-																min="0"
-																step="0.01"
-																class="input mono"
-																required
-															/>
-														</label>
-													</div>
-													<div class="form-row">
-														<label class="field">
-															<span class="field-label">{$_('finance.form.date')}</span>
-															<input
-																type="date"
-																name="date"
-																bind:value={editDate}
-																class="input"
-																required
-															/>
-														</label>
-														<label class="field">
-															<span class="field-label">{measurementFieldLabel}</span>
-															<input
-																type="number"
-																name="odometer"
-																bind:value={editOdometer}
-																min="0"
-																placeholder={$_('finance.form.odometerOptional')}
-																class="input mono"
-															/>
-														</label>
-													</div>
-													<label class="field">
-														<span class="field-label">{$_('finance.form.notes')}</span>
-														<input
-															type="text"
-															name="notes"
-															bind:value={editNotes}
-															placeholder={$_('finance.form.notesPlaceholder')}
-															maxlength="200"
-															class="input"
-														/>
-													</label>
-													<div class="form-actions">
-														<button type="submit" class="btn-primary" disabled={editSubmitting}
-															>{editSubmitting ? $_('finance.saving') : $_('finance.save')}</button
-														>
-														<button
-															type="button"
-															class="btn-cancel"
-															onclick={() => (editingEntry = null)}>{$_('finance.cancel')}</button
-														>
-													</div>
-												</form>
-											</div>
-										</td>
-									</tr>
-								{/if}
 							{/each}
 						</tbody>
 					</table>
@@ -896,7 +781,7 @@
 								{/if}
 							</div>
 							<div class="transaction-amount mono">
-								{formatCurrency(tx.amountCents, currency, locale)}
+								{formatCurrency(tx.amountCents, tx.currency, locale)}
 							</div>
 							{#if tx.type === 'finance'}
 								<div class="entry-actions" class:entry-actions--open={entryMenu === tx.id}>
@@ -914,10 +799,7 @@
 											<button
 												role="menuitem"
 												class="entry-menu-item"
-												onclick={() => {
-													prepareEdit(tx);
-													startEdit(tx.id, 'finance');
-												}}
+												onclick={() => openEditForm(tx)}
 											>
 												{$_('common.edit')}
 											</button>
@@ -946,241 +828,6 @@
 								</div>
 							{/if}
 						</div>
-
-						{#if editingEntry?.id === tx.id && tx.type === 'finance'}
-							<div class="entry-edit-form" {@attach scrollOnMount}>
-								<form
-									method="POST"
-									action="?/editTransaction"
-									use:enhance={() => {
-										editSubmitting = true;
-										return async ({ update }) => {
-											await update();
-											editSubmitting = false;
-											editAttachFile = null;
-											editShowLink = false;
-										};
-									}}
-								>
-									<input type="hidden" name="id" value={tx.id} />
-									<div class="form-row">
-										<label class="field">
-											<span class="field-label">{$_('finance.form.category')}</span>
-											<select name="category" bind:value={editCategory} class="input">
-												{#each categoryOptions as opt}
-													<option value={opt.value}>{opt.label}</option>
-												{/each}
-											</select>
-										</label>
-										<label class="field">
-											<span class="field-label"
-												>{$_('finance.form.amount', { values: { currency } })}</span
-											>
-											<input
-												type="number"
-												name="amount"
-												bind:value={editAmount}
-												min="0"
-												step="0.01"
-												class="input mono"
-												required
-											/>
-										</label>
-									</div>
-									<div class="form-row">
-										<label class="field">
-											<span class="field-label">{$_('finance.form.date')}</span>
-											<input type="date" name="date" bind:value={editDate} class="input" required />
-										</label>
-										<label class="field">
-											<span class="field-label">{measurementFieldLabel}</span>
-											<input
-												type="number"
-												name="odometer"
-												bind:value={editOdometer}
-												min="0"
-												placeholder={$_('finance.form.odometerOptional')}
-												class="input mono"
-											/>
-										</label>
-									</div>
-									<label class="field">
-										<span class="field-label">{$_('finance.form.notes')}</span>
-										<input
-											type="text"
-											name="notes"
-											bind:value={editNotes}
-											placeholder={$_('finance.form.notesPlaceholder')}
-											maxlength="200"
-											class="input"
-										/>
-									</label>
-
-									<div class="form-actions">
-										<button type="submit" class="btn-primary" disabled={editSubmitting}>
-											{editSubmitting ? $_('finance.saving') : $_('finance.save')}
-										</button>
-										<button type="button" class="btn-cancel" onclick={() => (editingEntry = null)}>
-											{$_('finance.cancel')}
-										</button>
-									</div>
-								</form>
-
-								<!-- Attachment management; separate form actions -->
-								<div class="edit-attachments">
-									<span class="field-label"
-										>{$_('vehicle.forms.fields.attachments', {
-											values: { optional: $_('common.optional') }
-										})}</span
-									>
-									{#if resolvedAttachments(tx).length > 0}
-										<div class="attach-chips">
-											{#each resolvedAttachments(tx) as doc}
-												<span class="doc-chip">
-													<span class="doc-chip-type">{$_('documents.types.' + doc.doc_type)}</span>
-													<span class="doc-chip-name"
-														>{doc.name.length > 24 ? doc.name.slice(0, 24) + '…' : doc.name}</span
-													>
-													<form method="POST" action="?/unlinkFinanceDocument" use:enhance>
-														<input type="hidden" name="transaction_id" value={tx.id} />
-														<input type="hidden" name="document_id" value={doc.id} />
-														<button type="submit" class="doc-chip-remove" aria-label="Remove"
-															>×</button
-														>
-													</form>
-												</span>
-											{/each}
-										</div>
-									{/if}
-									<div class="attach-actions">
-										<form
-											method="POST"
-											action="?/uploadToFinanceTransaction"
-											enctype="multipart/form-data"
-											use:enhance={({ formData }) => {
-												if (editAttachFile) formData.set('file', editAttachFile);
-												editUploading = true;
-												return async ({ update }) => {
-													await update();
-													editUploading = false;
-												};
-											}}
-										>
-											<input type="hidden" name="transaction_id" value={tx.id} />
-											{#if editAttachFile}
-												<span class="doc-chip">
-													<span class="doc-chip-name">{editAttachFile.name}</span>
-													<button
-														type="button"
-														class="doc-chip-remove"
-														onclick={clearEditAttach}
-														aria-label="Remove">×</button
-													>
-												</span>
-												<select
-													name="doc_type"
-													class="input attach-type"
-													bind:value={editAttachType}
-												>
-													{#each docTypeEntries as [val, key]}
-														<option value={val}>{$_(key)}</option>
-													{/each}
-												</select>
-												<button type="submit" class="attach-save" disabled={editUploading}>
-													{editUploading
-														? $_('vehicle.forms.attachments.uploading')
-														: $_('common.save')}
-												</button>
-											{:else}
-												<label class="attach-action-btn">
-													<svg
-														width="13"
-														height="13"
-														viewBox="0 0 24 24"
-														fill="none"
-														stroke="currentColor"
-														stroke-width="2"
-														stroke-linecap="round"
-														stroke-linejoin="round"
-														aria-hidden="true"
-														><path
-															d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"
-														/></svg
-													>
-													{$_('vehicle.forms.attachFile')}
-													<input
-														type="file"
-														class="attach-file-input"
-														accept="image/*,.pdf,.doc,.docx,.xls,.xlsx"
-														onchange={handleEditAttachPick}
-													/>
-												</label>
-											{/if}
-										</form>
-										<button
-											type="button"
-											class="attach-action-btn"
-											onclick={() => (editShowLink = !editShowLink)}
-										>
-											<svg
-												width="13"
-												height="13"
-												viewBox="0 0 24 24"
-												fill="none"
-												stroke="currentColor"
-												stroke-width="2"
-												stroke-linecap="round"
-												stroke-linejoin="round"
-												aria-hidden="true"
-												><path
-													d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"
-												/><path
-													d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"
-												/></svg
-											>
-											{$_('vehicle.forms.linkDocument')}
-										</button>
-									</div>
-									{#if editShowLink}
-										{@const available = unlinkedDocs(tx)}
-										<div class="link-picker">
-											<div class="link-picker-header">
-												<span class="link-picker-title"
-													>{$_('vehicle.forms.attachments.pickerTitle')}</span
-												>
-												<button
-													type="button"
-													class="link-picker-close"
-													onclick={() => (editShowLink = false)}>×</button
-												>
-											</div>
-											{#if available.length === 0}
-												<p class="link-picker-empty">
-													{$_('vehicle.forms.attachments.noDocuments')}
-												</p>
-											{:else}
-												<ul class="link-picker-list">
-													{#each available as doc}
-														<li>
-															<form method="POST" action="?/linkFinanceDocument" use:enhance>
-																<input type="hidden" name="transaction_id" value={tx.id} />
-																<input type="hidden" name="document_id" value={doc.id} />
-																<button type="submit" class="link-picker-item">
-																	<span class="doc-chip-type"
-																		>{$_('documents.types.' + doc.doc_type)}</span
-																	>
-																	<span class="link-picker-item-name">{doc.name}</span>
-																</button>
-															</form>
-														</li>
-													{/each}
-												</ul>
-											{/if}
-										</div>
-									{/if}
-								</div>
-							</div>
-						{/if}
 					{/each}
 				</div>
 				{#if totalFinancePages > 1}
@@ -1304,10 +951,6 @@
 		background: color-mix(in srgb, var(--accent) 6%, var(--bg));
 	}
 
-	.tx-row-edit {
-		border-bottom: 1px solid var(--border);
-	}
-
 	.tx-td {
 		padding: 0.625rem 0.875rem;
 		color: var(--text);
@@ -1327,10 +970,6 @@
 		overflow: hidden;
 		text-overflow: ellipsis;
 		white-space: nowrap;
-	}
-
-	.tx-td-edit {
-		padding: 0;
 	}
 
 	.tx-category-badge {
@@ -1419,6 +1058,8 @@
 		gap: 1rem;
 	}
 	.invest-card {
+		display: flex;
+		flex-direction: column;
 		background: var(--bg-subtle);
 		border: 1px solid var(--border);
 		border-radius: 10px;
@@ -1440,12 +1081,38 @@
 		letter-spacing: 0.05em;
 	}
 	.invest-amount {
+		flex: 1;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		margin-bottom: var(--space-2);
 		font-size: var(--text-2xl);
 		font-weight: 600;
 		font-family: var(--font-mono);
 		font-variant-numeric: tabular-nums;
 		color: var(--status-ok);
 		line-height: 1;
+	}
+	.money-stack {
+		display: inline-flex;
+		flex-direction: column;
+		align-items: flex-end;
+		gap: 0.1rem;
+		font-size: var(--text-sm);
+		font-weight: 500;
+		color: var(--text-muted);
+		line-height: 1.35;
+	}
+	.invest-amount .money-stack {
+		align-items: center;
+	}
+	.money-eyebrow {
+		display: block;
+		font-size: var(--text-xs);
+		font-weight: 500;
+		color: var(--text-subtle);
+		margin-bottom: var(--space-1);
 	}
 	.invest-amount--neutral {
 		color: var(--text);
@@ -1476,74 +1143,10 @@
 	}
 
 	/* Inline edit form */
-	.entry-edit-form {
-		border: 1px solid var(--border);
-		border-radius: 8px;
-		background: var(--bg-subtle);
-		padding: 1rem 1.25rem;
-		margin-bottom: 0.5rem;
-		display: flex;
-		flex-direction: column;
-		gap: 0.875rem;
-		scroll-margin-top: 1rem;
-	}
-	.form-row {
-		display: grid;
-		grid-template-columns: 1fr 1fr;
-		gap: 0.75rem;
-	}
-	.field {
-		display: flex;
-		flex-direction: column;
-		gap: var(--space-1);
-	}
-	.field-label {
-		font-size: var(--text-sm);
-		font-weight: 500;
-		color: var(--text-muted);
-	}
-	.input {
-		padding: 0.75rem;
-		border: 1px solid var(--border);
-		border-radius: 10px;
-		background: var(--bg);
-		color: var(--text);
-		font-size: var(--text-md);
-		min-height: 48px;
-	}
-	.input:hover {
-		border-color: var(--border-strong);
-	}
-	.input:focus {
-		outline: 2px solid var(--accent);
-		outline-offset: 1px;
-		border-color: var(--accent);
-	}
-	.form-actions {
-		display: flex;
-		gap: 0.75rem;
-		margin-top: 0.5rem;
-	}
 	.btn-primary:disabled {
 		opacity: 0.6;
 		cursor: not-allowed;
 	}
-	.btn-cancel {
-		padding: 0.75rem 1.25rem;
-		background: none;
-		border: 1px solid var(--border);
-		color: var(--text-muted);
-		border-radius: 10px;
-		font-size: var(--text-sm);
-		font-weight: 500;
-		cursor: pointer;
-		min-height: 48px;
-	}
-	.btn-cancel:hover {
-		background: var(--bg-muted);
-		color: var(--text);
-	}
-
 	/* Content controls row */
 	.content-controls {
 		display: flex;
@@ -1906,73 +1509,6 @@
 		font-variant-numeric: tabular-nums;
 	}
 
-	.attach-actions {
-		display: flex;
-		align-items: center;
-		gap: 0.5rem;
-		flex-wrap: wrap;
-	}
-	.attach-action-btn {
-		display: inline-flex;
-		align-items: center;
-		gap: 0.3rem;
-		background: none;
-		border: 1px solid var(--border);
-		border-radius: 6px;
-		cursor: pointer;
-		font-size: var(--text-sm);
-		color: var(--text-muted);
-		padding: 0.25rem 0.5rem;
-		line-height: 1;
-		transition:
-			border-color 0.1s,
-			color 0.1s;
-	}
-	.attach-action-btn:hover {
-		border-color: var(--border-strong);
-		color: var(--text);
-	}
-	.attach-file-input {
-		display: none;
-	}
-	.attach-type {
-		font-size: var(--text-xs) !important;
-		padding: 0.25rem 0.375rem !important;
-		width: auto !important;
-		min-height: auto !important;
-		border-radius: 6px !important;
-		line-height: 1.4 !important;
-	}
-	.attach-chips {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 0.375rem;
-	}
-	.attach-save {
-		padding: 0.25rem 0.75rem;
-		background: var(--accent);
-		color: #fff;
-		border: none;
-		border-radius: 6px;
-		font-size: var(--text-xs);
-		font-weight: 500;
-		cursor: pointer;
-	}
-	.attach-save:hover:not(:disabled) {
-		background: var(--accent-hover);
-	}
-	.attach-save:disabled {
-		opacity: 0.6;
-		cursor: not-allowed;
-	}
-	.edit-attachments {
-		border-top: 1px solid var(--border);
-		margin-top: 0.625rem;
-		padding-top: 0.625rem;
-		display: flex;
-		flex-direction: column;
-		gap: 0.5rem;
-	}
 	.doc-chip {
 		display: inline-flex;
 		align-items: center;
@@ -1998,20 +1534,6 @@
 		white-space: nowrap;
 		max-width: 150px;
 	}
-	.doc-chip-remove {
-		background: none;
-		border: none;
-		cursor: pointer;
-		color: var(--text-subtle);
-		padding: 0;
-		font-size: 0.85rem;
-		line-height: 1;
-		flex-shrink: 0;
-		margin-left: 1px;
-	}
-	.doc-chip-remove:hover {
-		color: var(--status-overdue);
-	}
 	.doc-chip--link {
 		text-decoration: none;
 		transition:
@@ -2033,83 +1555,7 @@
 		gap: 0.375rem;
 		margin-top: 0.375rem;
 	}
-	.link-picker {
-		margin-top: 0.5rem;
-		border: 1px solid var(--border);
-		border-radius: 10px;
-		background: var(--bg);
-		box-shadow: 0 2px 8px rgba(0, 0, 0, 0.07);
-		overflow: hidden;
-		max-width: min(320px, 90vw);
-	}
-	.link-picker-header {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		padding: 0.5rem 0.75rem;
-		border-bottom: 1px solid var(--border);
-	}
-	.link-picker-title {
-		font-size: var(--text-sm);
-		font-weight: 500;
-		color: var(--text);
-	}
-	.link-picker-close {
-		background: none;
-		border: none;
-		cursor: pointer;
-		color: var(--text-muted);
-		font-size: 1rem;
-		padding: 0;
-		line-height: 1;
-	}
-	.link-picker-close:hover {
-		color: var(--text);
-	}
-	.link-picker-empty {
-		font-size: var(--text-sm);
-		color: var(--text-muted);
-		padding: 0.75rem;
-		margin: 0;
-	}
-	.link-picker-list {
-		list-style: none;
-		margin: 0;
-		padding: 0.25rem;
-		max-height: 200px;
-		overflow-y: auto;
-	}
-	.link-picker-list li {
-		margin: 0;
-	}
-	.link-picker-item {
-		display: flex;
-		align-items: center;
-		gap: 0.375rem;
-		width: 100%;
-		padding: 0.375rem 0.5rem;
-		background: none;
-		border: none;
-		border-radius: 6px;
-		cursor: pointer;
-		text-align: left;
-		transition: background 0.1s;
-	}
-	.link-picker-item:hover {
-		background: var(--bg-subtle);
-	}
-	.link-picker-item-name {
-		font-size: var(--text-sm);
-		color: var(--text);
-		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
-	}
-
 	@media (max-width: 640px) {
-		.form-row {
-			grid-template-columns: 1fr;
-		}
 		.entry-menu-btn {
 			opacity: 1;
 			width: 44px;

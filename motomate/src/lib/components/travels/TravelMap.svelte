@@ -104,11 +104,8 @@
 				const c = map.getCenter();
 				initialView = { center: [c.lat, c.lng], zoom: map.getZoom() };
 			}
-			// If selection is cleared entirely (length goes from >0 to 0), reset initialView
-			// so the map refits to show all routes instead of restoring to a single-selection view
+			// Selection cleared, so reset initialView and let the map refit to all routes
 			if (selectedTravelIds.length === 0 && initialView !== null) {
-				// Check if we should refit to all routes vs restore previous view
-				// We reset initialView to trigger a refit to all routes
 				initialView = null;
 			}
 			updateColors();
@@ -219,8 +216,7 @@
 					const bounds = layer.getBounds();
 					if (bounds.isValid()) newBounds.push(bounds);
 
-					// leaflet-gpx nests layers: GPX > FeatureGroup(s) > Polyline/Marker
-					// We need two levels of iteration to reach the actual primitives.
+					// leaflet-gpx nests GPX > FeatureGroup > Polyline/Marker, so two levels of iteration is needed
 					const polys: any[] = [];
 					const markers: any[] = [];
 					layer.eachLayer((child: any) => {
@@ -308,6 +304,8 @@
 	async function initMap() {
 		if (!mapEl || !browser) return;
 		try {
+			// Bundled rather than pulled from a CDN, so an offline install still renders the map.
+			await import('leaflet/dist/leaflet.css');
 			L = (await import('leaflet')).default;
 			await import('leaflet-gpx');
 

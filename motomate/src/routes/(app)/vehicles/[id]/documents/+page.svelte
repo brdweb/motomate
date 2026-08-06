@@ -282,7 +282,7 @@
 <div class="page-header">
 	<div class="page-header-text">
 		<h2 class="section-title">{$_('documents.title')}</h2>
-		<p class="page-sub">{$_('documents.subtitle')}</p>
+		<p class="section-sub">{$_('documents.subtitle')}</p>
 	</div>
 	<div class="page-actions">
 		<button type="button" class="btn-primary" onclick={() => openUploadSheet()}>
@@ -596,7 +596,7 @@
 		color: var(--text);
 		margin: 0;
 	}
-	.page-sub {
+	.section-sub {
 		font-size: var(--text-sm);
 		color: var(--text-muted);
 		margin: 0;

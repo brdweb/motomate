@@ -517,11 +517,20 @@
 				"imageTooLarge": "Imagem demasiado grande (máx. 2 MB)",
 				"invalidImageFormat": "Formato de imagem inválido. Suportado: JPEG, PNG, WebP, GIF",
 				"invalidFileExt": "Extensão de ficheiro inválida. Suportado: .jpg, .jpeg, .png, .webp, .gif",
-				"uploadFailed": "Falha no upload: erro de armazenamento"
+				"uploadFailed": "Falha no upload: erro de armazenamento",
+				"chooseDistanceUnit": "Escolha quilómetros ou milhas.",
+				"notDistanceConvertible": "Este veículo não pode ser convertido para uma unidade de distância."
 			},
 			"measurementUnit": {
 				"title": "Unidade de medida",
-				"locked": "Bloqueada após criação"
+				"locked": "Bloqueada após criação",
+				"eyebrow": "Leitura atual",
+				"summary": "Converta juntos todos os dados guardados.",
+				"review": "Rever conversão",
+				"converted": "Valores de distância convertidos",
+				"dialogTitle": "Converter {from} para {to}?",
+				"dialogDescription": "A sua leitura atual passará a ser {value} {unit}. O histórico do odómetro, os registos de serviço, os intervalos de manutenção e os lembretes por distância permanecerão alinhados.",
+				"confirm": "Converter distâncias"
 			},
 			"usageUpdated": "Uso atualizado"
 		},
@@ -720,10 +729,11 @@
 			"notSet": "Não definido",
 			"addHint": "Adicionar em Definições → Compra & Venda",
 			"expenses": "Despesas",
-			"transactions": "{count} transação",
+			"transactions": "{count, plural, one {# transação} other {# transações}}",
 			"transactions_plural": "{count} transações",
 			"totalInvested": "Total investido",
-			"soldFor": "Vendido por"
+			"soldFor": "Vendido por",
+			"currencyCount": "{count, plural, one {# moeda} other {# moedas}}"
 		},
 		"form": {
 			"addTitle": "Adicionar",
@@ -958,7 +968,11 @@
 			"confirmDeleteDesc": "Eliminar a regra \"{name}\"? Esta ação não pode ser desfeita.",
 			"runCheck": "Verificar agora",
 			"runCheckDone": "Verificação concluída",
-			"subtitle": "Regras automatizadas para manutenção e lembretes."
+			"subtitle": "Regras automatizadas para manutenção e lembretes.",
+			"actions": {
+				"title": "Ações das regras",
+				"description": "Execute a verificação agendada agora ou restaure as regras predefinidas."
+			}
 		},
 		"notifications": {
 			"title": "Notificacoes",
@@ -1044,7 +1058,8 @@
 			"sourceCode": "Codigo fonte",
 			"reportIssue": "Reportar um problema",
 			"tapAgain": "Toque novamente para abrir",
-			"changelog": "Changelog"
+			"changelog": "Changelog",
+			"integrations": "Integracoes"
 		},
 		"changelog": {
 			"title": "O que há de novo?",
@@ -1109,6 +1124,52 @@
 				"link": "Ver documentação",
 				"specLink": "Spec OpenAPI bruta"
 			}
+		},
+		"integrations": {
+			"title": "Integracoes",
+			"description": "O MotoMate mantem sempre os teus ficheiros neste servidor. Estes destinos opcionais recebem uma copia.",
+			"storedPlaceholder": "Guardado, deixa vazio para manter",
+			"test": "Testar ligacao",
+			"testOk": "A ligacao funciona",
+			"never": "Nunca",
+			"lastSync": "Ultima sincronizacao: {date}",
+			"s3": {
+				"label": "Backup S3",
+				"description": "Replica documentos e imagens para qualquer bucket compativel com S3, incluindo MinIO, SeaweedFS, Garage e Backblaze B2.",
+				"endpointLabel": "Endpoint",
+				"endpointHint": "Deixa vazio para AWS S3. Fornecedores self-hosted como MinIO ou SeaweedFS precisam do URL completo.",
+				"regionLabel": "Regiao",
+				"bucketLabel": "Bucket",
+				"accessKeyLabel": "Access key",
+				"secretKeyLabel": "Secret key"
+			},
+			"paperless": {
+				"label": "Paperless-ngx",
+				"description": "Envia uma copia de cada documento carregado para o teu arquivo paperless-ngx para OCR e pesquisa em texto integral.",
+				"urlLabel": "URL do servidor",
+				"tokenLabel": "Token de API",
+				"tokenHint": "Cria um no paperless-ngx em Definicoes e depois Tokens de API.",
+				"includeReportsLabel": "Arquivar tambem os relatorios de manutencao",
+				"includeReportsHint": "Os relatorios gerados pelo MotoMate sao ignorados por omissao porque podes gera-los de novo. Ativa isto para os manteres tambem no paperless."
+			},
+			"sync": {
+				"title": "Sincronizar tudo",
+				"description": "Os ficheiros anteriores a ativacao ainda nao foram copiados. Executa uma vez depois de configurar e de novo se algo falhar.",
+				"button": "Sincronizar tudo",
+				"running": "A sincronizar",
+				"failed": "{count} item(s) falharam. Corrige a causa e executa outra vez.",
+				"skipped": "{count} documento(s) nao enviado(s) para o paperless.",
+				"reason": {
+					"unsupported": "tipo de ficheiro nao suportado pelo paperless",
+					"report": "relatorio gerado, nao arquivado"
+				},
+				"resultS3": "{uploaded} carregados, {skipped} ja no bucket.",
+				"resultPaperless": "{pushed} enviados para o paperless, {already} ja arquivados.",
+				"resend": "Enviar tudo de novo",
+				"resendHint": "Usa isto depois de esvaziares o teu arquivo paperless: ignora o que ja foi enviado."
+			},
+			"saved": "Definicoes guardadas",
+			"saveFailed": "Nao foi possivel guardar as definicoes"
 		}
 	},
 	"units": {
@@ -1161,7 +1222,8 @@
 			"title": "Notificações",
 			"empty": "Sem novas notificações",
 			"viewAll": "Ver tudo",
-			"error": "Não foi possível carregar as notificações"
+			"error": "Não foi possível carregar as notificações",
+			"clearAll": "Limpar tudo"
 		}
 	},
 	"notifications": {
@@ -1184,6 +1246,16 @@
 		"odometerNudge": {
 			"title": "Atualize o seu odómetro",
 			"body": "Conduziu {{vehicle_name}} recentemente? Atualize o odómetro para manter os seus registos de manutenção precisos."
+		},
+		"integration": {
+			"s3": {
+				"title": "O backup S3 esta a falhar",
+				"body": "O MotoMate nao conseguiu copiar os teus ficheiros para o bucket. Verifica a ligacao em Definicoes, Integracoes."
+			},
+			"paperless": {
+				"title": "O arquivo paperless esta a falhar",
+				"body": "O MotoMate nao conseguiu enviar um documento para o paperless-ngx. Verifica a ligacao em Definicoes, Integracoes."
+			}
 		}
 	},
 	"travels": {
@@ -1274,7 +1346,8 @@
 			"title": "Despesas",
 			"modMonthly": "Mensal",
 			"modCumulative": "Cumulativo",
-			"viewDetails": "Ver detalhes das despesas"
+			"viewDetails": "Ver detalhes das despesas",
+			"currencyNote": "O gráfico mostra apenas {currency}. Não incluído: {excluded}."
 		},
 		"empty": {
 			"title": "Sem dados ainda",

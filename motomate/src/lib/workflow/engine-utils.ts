@@ -21,6 +21,15 @@ export function parseFiredAtMap(raw: string | null): Record<string, string> {
 	return {};
 }
 
+// last_triggered_at maps the per-target cooldownss, so the latest entry is when the rule last fired
+export function lastFiredAt(raw: string | null): string | null {
+	const times = Object.values(parseFiredAtMap(raw)).filter(
+		(t) => typeof t === 'string' && !Number.isNaN(Date.parse(t))
+	);
+	if (times.length === 0) return null;
+	return times.reduce((latest, t) => (t > latest ? t : latest));
+}
+
 export function cooldownKey(vehicleId: string, documentId?: string): string {
 	return documentId ? `${vehicleId}/${documentId}` : vehicleId;
 }

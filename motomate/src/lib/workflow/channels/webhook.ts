@@ -1,3 +1,5 @@
+import { assertSafeUrl } from '$lib/server/url-guard.js';
+
 export async function dispatchWebhook(
 	url: string,
 	authHeader: string | undefined,
@@ -10,8 +12,10 @@ export async function dispatchWebhook(
 	if (authHeader) headers['Authorization'] = authHeader;
 
 	try {
+		await assertSafeUrl(url);
 		const res = await fetch(url, {
 			method: 'POST',
+			redirect: 'manual',
 			headers,
 			body: JSON.stringify({
 				event: 'motomate_notification',

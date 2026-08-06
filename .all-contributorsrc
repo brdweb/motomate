@@ -34,6 +34,24 @@
       "contributions": [
         "translation"
       ]
+    },
+    {
+      "login": "Ovidiu",
+      "name": "Ovidiu Curcan",
+      "avatar_url": "https://avatars.githubusercontent.com/u/63847?v=4",
+      "profile": "http://ovidiu.nl",
+      "contributions": [
+        "code"
+      ]
+    },
+    {
+      "login": "brdweb",
+      "name": "Jason Mitchell",
+      "avatar_url": "https://avatars.githubusercontent.com/u/58915?v=4",
+      "profile": "https://github.com/brdweb",
+      "contributions": [
+        "code"
+      ]
     }
   ],
   "contributorsPerLine": 7,

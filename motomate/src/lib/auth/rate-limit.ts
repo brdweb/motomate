@@ -14,12 +14,7 @@ setInterval(() => {
 	}
 }, 5 * 60_000);
 
-/**
- * Returns true if the request is allowed, false if rate limited.
- * @param key      Unique string, e.g. "login:{ip}"
- * @param max      Maximum requests allowed within the window
- * @param windowMs Window length in milliseconds
- */
+/** True when allowed, false when limited; key is a unique bucket string like "login:email:{addr}" */
 export function rateLimit(key: string, max: number, windowMs: number): boolean {
 	const now = Date.now();
 	const bucket = store.get(key);

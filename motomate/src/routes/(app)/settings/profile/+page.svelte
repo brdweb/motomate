@@ -8,12 +8,14 @@
 		DEFAULT_ODOMETER_UNIT,
 		DISTANCE_UNITS,
 		getDistanceUnitTranslationKey,
-		isDistanceUnit
+		isDistanceUnit,
+		type DistanceUnit
 	} from '$lib/utils/measurement.js';
 	import { untrack } from 'svelte';
 	import { browser } from '$app/environment';
 	import { dicebearUri, randomSeed } from '$lib/utils/dicebear.js';
 	import { resolveTheme, readStoredTheme } from '$lib/utils/theme.js';
+	import { toasts } from '$lib/stores/toasts.svelte.js';
 
 	let { data, form } = $props<{
 		data: { user: User };
@@ -72,10 +74,12 @@
 		gridSeeds = [gridSeeds[0], ...Array.from({ length: 8 }, randomSeed)];
 	}
 
-	const selectedOdometerUnit = $derived(
-		isDistanceUnit(data.user.settings.odometer_unit)
-			? data.user.settings.odometer_unit
-			: DEFAULT_ODOMETER_UNIT
+	let selectedOdometerUnit = $state<DistanceUnit>(
+		untrack(() =>
+			isDistanceUnit(data.user.settings.odometer_unit)
+				? data.user.settings.odometer_unit
+				: DEFAULT_ODOMETER_UNIT
+		)
 	);
 
 	const themeOptions = [
@@ -83,30 +87,33 @@
 		{ id: 'dark' as const, labelKey: 'layout.theme.dark' },
 		{ id: 'system' as const, labelKey: 'layout.theme.system' }
 	];
-	let selectedTheme = $state<'light' | 'dark' | 'system'>('system');
+	let selectedTheme = $state<'light' | 'dark' | 'system'>(
+		untrack(() => {
+			const db = (data.user.settings.theme ?? 'system') as 'light' | 'dark' | 'system';
+			if (db !== 'system') return db;
+			return browser ? readStoredTheme() : 'system';
+		})
+	);
 
-	$effect(() => {
-		if (browser) selectedTheme = readStoredTheme();
-	});
-
-	function setTheme(t: 'light' | 'dark' | 'system') {
+	async function setTheme(t: 'light' | 'dark' | 'system') {
 		selectedTheme = t;
 		localStorage.setItem('theme', t);
 		document.documentElement.dataset.theme = resolveTheme(t);
+		const fd = new FormData();
+		fd.set('theme', t);
+		await fetch('?/savePrefs', { method: 'POST', body: fd });
 	}
 </script>
 
 <svelte:head><title>{$_('settings.profile.title')} &middot; Settings</title></svelte:head>
 
-<h2 class="section-title">{$_('settings.profile.title')}</h2>
-<p class="section-sub">{$_('settings.profile.subtitle')}</p>
+<div class="intro">
+	<h2 class="section-title">{$_('settings.profile.title')}</h2>
+	<p class="section-desc">{$_('settings.profile.subtitle')}</p>
+</div>
 
 <section class="setting-section">
 	<h3 class="sub-title">{$_('settings.profile.avatar')}</h3>
-
-	{#if form?.avatarError}
-		<div class="banner banner--err">{form.avatarError}</div>
-	{/if}
 
 	<button
 		type="button"
@@ -129,22 +136,16 @@
 <section class="setting-section">
 	<h3 class="sub-title">{$_('settings.profile.display')}</h3>
 
-	{#if form?.savedPrefs}
-		<div class="banner banner--ok">{$_('settings.profile.saved')}</div>
-	{/if}
-	{#if form?.error}
-		<div class="banner banner--err">{form.error}</div>
-	{/if}
-
 	<form
 		method="POST"
 		action="?/savePrefs"
 		class="pref-form"
 		use:enhance={() => {
 			saving = true;
-			return async ({ update }) => {
-				await update();
+			return async ({ result, update }) => {
+				await update({ reset: false });
 				saving = false;
+				if (result.type === 'success') toasts.success($_('settings.profile.saved'));
 			};
 		}}
 	>
@@ -192,7 +193,7 @@
 							type="radio"
 							name="odometer_unit"
 							value={unit}
-							checked={selectedOdometerUnit === unit}
+							bind:group={selectedOdometerUnit}
 							class="sr-only"
 						/>
 						{$_(getDistanceUnitTranslationKey(unit))}
@@ -247,10 +248,6 @@
 				{/if}
 			</div>
 
-			{#if form?.avatarError}
-				<div class="banner banner--err" style="margin-bottom: 0.75rem">{form.avatarError}</div>
-			{/if}
-
 			<!-- DiceBear grid (3×3) -->
 			<div class="dice-label">{$_('settings.profile.avatarDicebear')}</div>
 			<div class="dice-grid">
@@ -304,9 +301,10 @@
 					const file = formData.get('file') as File;
 					if (!file || file.size === 0) return cancel();
 					avatarUploading = true;
-					return async ({ update }) => {
+					return async ({ result, update }) => {
 						await update();
 						avatarUploading = false;
+						if (result.type === 'failure') toasts.error(String(result.data?.avatarError ?? ''));
 						if (fileInput) fileInput.value = '';
 					};
 				}}
@@ -351,11 +349,14 @@
 		margin: 0 0 var(--space-2);
 		letter-spacing: -0.02em;
 	}
-	.section-sub {
+	.section-desc {
 		font-size: var(--text-sm);
 		color: var(--text-muted);
-		margin: 0 0 var(--space-6);
 		line-height: var(--leading-base);
+		margin: 0;
+	}
+	.intro {
+		margin-bottom: var(--space-5);
 	}
 	.sub-title {
 		font-size: var(--text-lg);
@@ -393,12 +394,14 @@
 	}
 	.input {
 		padding: 0.5rem 0.75rem;
-		border: 1px solid var(--border-strong);
-		border-radius: 10px;
+		border: 1px solid var(--border);
+		border-radius: 8px;
 		background: var(--bg-subtle);
 		color: var(--text);
-		font-size: var(--text-md);
+		font-size: max(1rem, 16px);
 		width: 100%;
+		transition: border-color 0.15s;
+		box-sizing: border-box;
 	}
 	.input:focus {
 		outline: 2px solid var(--accent);
@@ -442,22 +445,6 @@
 		clip: rect(0, 0, 0, 0);
 		white-space: nowrap;
 		border-width: 0;
-	}
-	.banner {
-		padding: 0.625rem 0.875rem;
-		border-radius: 10px;
-		font-size: var(--text-sm);
-		border: 1px solid;
-	}
-	.banner--ok {
-		background: color-mix(in srgb, var(--status-ok) 8%, transparent);
-		border-color: color-mix(in srgb, var(--status-ok) 25%, transparent);
-		color: var(--status-ok);
-	}
-	.banner--err {
-		background: color-mix(in srgb, var(--status-overdue) 8%, transparent);
-		border-color: color-mix(in srgb, var(--status-overdue) 25%, transparent);
-		color: var(--status-overdue);
 	}
 	.btn-secondary {
 		align-self: flex-start;

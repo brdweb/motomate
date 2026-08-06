@@ -386,7 +386,14 @@
 			},
 			"measurementUnit": {
 				"title": "Unitate de măsură",
-				"locked": "Unitatea de măsură nu mai poate fi schimbată după crearea vehiculului."
+				"locked": "Unitatea de măsură nu mai poate fi schimbată după crearea vehiculului.",
+				"eyebrow": "Citire curentă",
+				"summary": "Convertește împreună toate datele salvate.",
+				"review": "Verifică conversia",
+				"converted": "Valori de distanță convertite",
+				"dialogTitle": "Convertești {from} în {to}?",
+				"dialogDescription": "Citirea curentă va deveni {value} {unit}. Istoricul kilometrajului, înregistrările de service, intervalele de întreținere și memento-urile bazate pe distanță vor rămâne aliniate.",
+				"confirm": "Convertește distanțele"
 			},
 			"vehicleDetails": "Detalii vehicul",
 			"fields": {
@@ -489,7 +496,9 @@
 				"imageTooLarge": "Imaginea este prea mare (max. 2 MB)",
 				"invalidImageFormat": "Format de imagine nevalid. Formate acceptate: JPEG, PNG, WebP, GIF",
 				"invalidFileExt": "Extensie de fișier nevalidă. Extensii acceptate: .jpg, .jpeg, .png, .webp, .gif",
-				"uploadFailed": "Încărcarea a eșuat: eroare de stocare"
+				"uploadFailed": "Încărcarea a eșuat: eroare de stocare",
+				"chooseDistanceUnit": "Alege kilometri sau mile.",
+				"notDistanceConvertible": "Acest vehicul nu poate fi convertit într-o unitate de distanță."
 			}
 		},
 		"layout": {
@@ -723,7 +732,8 @@
 			"transactions": "{count, plural, =1 {1 tranzacție} other {# tranzacții}}",
 			"transactions_plural": "{count, plural, =1 {1 tranzacție} other {# tranzacții}}",
 			"totalInvested": "Total investit",
-			"soldFor": "Vândut pentru"
+			"soldFor": "Vândut pentru",
+			"currencyCount": "{count, plural, one {# valută} other {# valute}}"
 		},
 		"form": {
 			"addTitle": "Adaugă",
@@ -849,7 +859,8 @@
 			"changelog": "Istoric modificări",
 			"sourceCode": "Cod sursă",
 			"reportIssue": "Raportează o problemă",
-			"tapAgain": "Apasă din nou pentru a deschide"
+			"tapAgain": "Apasă din nou pentru a deschide",
+			"integrations": "Integrari"
 		},
 		"profile": {
 			"title": "Preferințe",
@@ -969,7 +980,11 @@
 			"confirmDeleteDesc": "Ștergi regula „{name}”? Această acțiune nu poate fi anulată.",
 			"runCheck": "Rulează verificarea acum",
 			"runCheckDone": "Verificare finalizată",
-			"subtitle": "Reguli automatizate pentru întreținere și mementouri."
+			"subtitle": "Reguli automatizate pentru întreținere și mementouri.",
+			"actions": {
+				"title": "Acțiuni pentru reguli",
+				"description": "Rulează verificarea programată acum sau restaurează regulile implicite."
+			}
 		},
 		"notifications": {
 			"title": "Notificări",
@@ -1109,6 +1124,52 @@
 				"link": "Vezi documentația",
 				"specLink": "Specificație OpenAPI brută (Raw)"
 			}
+		},
+		"integrations": {
+			"title": "Integrari",
+			"description": "MotoMate pastreaza mereu fisierele pe acest server. Aceste destinatii optionale primesc o copie.",
+			"storedPlaceholder": "Salvat, lasa gol pentru a-l pastra",
+			"test": "Testeaza conexiunea",
+			"testOk": "Conexiunea functioneaza",
+			"never": "Niciodata",
+			"lastSync": "Ultima sincronizare: {date}",
+			"s3": {
+				"label": "Backup S3",
+				"description": "Copiaza documente si imagini in orice bucket compatibil S3, inclusiv MinIO, SeaweedFS, Garage si Backblaze B2.",
+				"endpointLabel": "Endpoint",
+				"endpointHint": "Lasa gol pentru AWS S3. Furnizorii self-hosted precum MinIO sau SeaweedFS au nevoie de URL-ul complet.",
+				"regionLabel": "Regiune",
+				"bucketLabel": "Bucket",
+				"accessKeyLabel": "Access key",
+				"secretKeyLabel": "Secret key"
+			},
+			"paperless": {
+				"label": "Paperless-ngx",
+				"description": "Trimite o copie a fiecarui document incarcat catre arhiva ta paperless-ngx pentru OCR si cautare full-text.",
+				"urlLabel": "URL server",
+				"tokenLabel": "Token API",
+				"tokenHint": "Creeaza unul in paperless-ngx la Setari, apoi Token-uri API.",
+				"includeReportsLabel": "Arhiveaza si rapoartele de intretinere",
+				"includeReportsHint": "Rapoartele generate de MotoMate sunt omise implicit pentru ca le poti regenera. Activeaza aceasta optiune ca sa le pastrezi si in paperless."
+			},
+			"sync": {
+				"title": "Sincronizeaza tot",
+				"description": "Fisierele de dinainte de activare nu sunt inca copiate. Ruleaza o data dupa configurare si din nou daca ceva esueaza.",
+				"button": "Sincronizeaza tot",
+				"running": "Se sincronizeaza",
+				"failed": "{count} element(e) au esuat. Rezolva cauza si ruleaza din nou.",
+				"skipped": "{count} document(e) netrimise catre paperless.",
+				"reason": {
+					"unsupported": "tip de fisier neacceptat de paperless",
+					"report": "raport generat, nearhivat"
+				},
+				"resultS3": "{uploaded} incarcate, {skipped} deja in bucket.",
+				"resultPaperless": "{pushed} trimise catre paperless, {already} deja arhivate.",
+				"resend": "Trimite tot din nou",
+				"resendHint": "Foloseste asta dupa ce ti-ai golit arhiva paperless: ignora ce a fost deja trimis."
+			},
+			"saved": "Setari salvate",
+			"saveFailed": "Setarile nu au putut fi salvate"
 		}
 	},
 	"layout": {
@@ -1150,7 +1211,8 @@
 			"title": "Notificări",
 			"empty": "Nicio notificare nouă",
 			"viewAll": "Vezi toate",
-			"error": "Notificările nu au putut fi încărcate"
+			"error": "Notificările nu au putut fi încărcate",
+			"clearAll": "Sterge tot"
 		}
 	},
 	"units": {
@@ -1247,6 +1309,16 @@
 		"odometerNudge": {
 			"title": "Actualizează odometrul",
 			"body": "Te-ai plimbat cu {{vehicle_name}} recent? Actualizează odometrul pentru a păstra acuratețea monitorizării întreținerii."
+		},
+		"integration": {
+			"s3": {
+				"title": "Backupul S3 esueaza",
+				"body": "MotoMate nu a putut copia fisierele in bucket. Verifica conexiunea in Setari, Integrari."
+			},
+			"paperless": {
+				"title": "Arhivarea paperless esueaza",
+				"body": "MotoMate nu a putut trimite un document catre paperless-ngx. Verifica conexiunea in Setari, Integrari."
+			}
 		}
 	},
 	"insights": {
@@ -1254,7 +1326,8 @@
 			"modCumulative": "Cumulativ",
 			"modMonthly": "Lunar",
 			"title": "Cheltuieli",
-			"viewDetails": "Vezi cheltuielile"
+			"viewDetails": "Vezi cheltuielile",
+			"currencyNote": "Graficul afișează doar {currency}. Neinclus: {excluded}."
 		},
 		"empty": {
 			"costs": "Adaugă cheltuieli pentru a vedea ce ai cheltuit.",

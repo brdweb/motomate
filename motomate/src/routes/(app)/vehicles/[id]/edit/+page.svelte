@@ -162,7 +162,9 @@
 <div class="page-header">
 	<div class="page-header-text">
 		<h2 class="section-title">{$_('vehicle.edit.title')}</h2>
-		<p class="page-sub">{$_('vehicle.edit.subtitle', { values: { name: data.vehicle.name } })}</p>
+		<p class="section-sub">
+			{$_('vehicle.edit.subtitle', { values: { name: data.vehicle.name } })}
+		</p>
 	</div>
 </div>
 
@@ -209,75 +211,6 @@
 	</section>
 
 	<div class="divider"></div>
-
-	{#if canConvertDistanceUnit}
-		<section class="edit-section">
-			<h2 class="section-label">{$_('vehicle.edit.measurementUnit.title')}</h2>
-			<form
-				method="POST"
-				action="?/convertUnit"
-				bind:this={unitConversionForm}
-				use:enhance={() => {
-					unitConverting = true;
-					return async ({ result, update }) => {
-						await update({ reset: false });
-						unitConverting = false;
-						showUnitConversionDialog = false;
-						if (result.type === 'success') {
-							odometerInput = data.vehicle.current_odometer;
-							selectedDistanceUnit = data.vehicle.odometer_unit as DistanceUnit;
-							toasts.success('Distance values converted');
-						} else if (result.type === 'failure' && (result.data as any)?.error) {
-							toasts.error((result.data as any).error);
-						}
-					};
-				}}
-			>
-				<div class="unit-converter">
-					<div class="unit-converter__context">
-						<div class="unit-converter__eyebrow">Current reading</div>
-						<div class="unit-converter__reading">
-							{formatNumber(data.vehicle.current_odometer, locale)}
-							{data.vehicle.odometer_unit}
-							<span aria-hidden="true">→</span>
-							<strong>{formatNumber(convertedCurrentReading, locale)} {selectedDistanceUnit}</strong
-							>
-						</div>
-						<p>Convert every saved distance and maintenance interval together.</p>
-					</div>
-					<div class="unit-converter__controls">
-						<div class="unit-toggle" aria-label={$_('vehicle.edit.measurementUnit.title')}>
-							{#each DISTANCE_UNITS as unit}
-								<label
-									class:unit-toggle__option--active={selectedDistanceUnit === unit}
-									class="unit-toggle__option"
-								>
-									<input
-										type="radio"
-										name="odometer_unit"
-										value={unit}
-										bind:group={selectedDistanceUnit}
-										class="sr-only"
-									/>
-									{$_(getDistanceUnitTranslationKey(unit))}
-								</label>
-							{/each}
-						</div>
-						<button
-							type="button"
-							class="btn-primary"
-							disabled={!distanceUnitChanged || unitConverting}
-							onclick={() => (showUnitConversionDialog = true)}
-						>
-							Review conversion
-						</button>
-					</div>
-				</div>
-			</form>
-		</section>
-
-		<div class="divider"></div>
-	{/if}
 
 	<!-- Vehicle details & Purchase/Sale -->
 	<section class="edit-section">
@@ -424,6 +357,77 @@
 
 	<div class="divider"></div>
 
+	{#if canConvertDistanceUnit}
+		<details class="edit-section unit-section">
+			<summary class="section-label unit-section__summary"
+				>{$_('vehicle.edit.measurementUnit.title')}</summary
+			>
+			<form
+				method="POST"
+				action="?/convertUnit"
+				bind:this={unitConversionForm}
+				use:enhance={() => {
+					unitConverting = true;
+					return async ({ result, update }) => {
+						await update({ reset: false });
+						unitConverting = false;
+						showUnitConversionDialog = false;
+						if (result.type === 'success') {
+							odometerInput = data.vehicle.current_odometer;
+							selectedDistanceUnit = data.vehicle.odometer_unit as DistanceUnit;
+							toasts.success($_('vehicle.edit.measurementUnit.converted'));
+						} else if (result.type === 'failure' && (result.data as any)?.error) {
+							toasts.error((result.data as any).error);
+						}
+					};
+				}}
+			>
+				<div class="unit-converter">
+					<div class="unit-converter__context">
+						<div class="unit-converter__eyebrow">{$_('vehicle.edit.measurementUnit.eyebrow')}</div>
+						<div class="unit-converter__reading">
+							{formatNumber(data.vehicle.current_odometer, locale)}
+							{data.vehicle.odometer_unit}
+							<span aria-hidden="true">→</span>
+							<strong>{formatNumber(convertedCurrentReading, locale)} {selectedDistanceUnit}</strong
+							>
+						</div>
+						<p>{$_('vehicle.edit.measurementUnit.summary')}</p>
+					</div>
+					<div class="unit-converter__controls">
+						<div class="unit-toggle" aria-label={$_('vehicle.edit.measurementUnit.title')}>
+							{#each DISTANCE_UNITS as unit}
+								<label
+									class:unit-toggle__option--active={selectedDistanceUnit === unit}
+									class="unit-toggle__option"
+								>
+									<input
+										type="radio"
+										name="odometer_unit"
+										value={unit}
+										bind:group={selectedDistanceUnit}
+										class="sr-only"
+									/>
+									{$_(getDistanceUnitTranslationKey(unit))}
+								</label>
+							{/each}
+						</div>
+						<button
+							type="button"
+							class="btn-primary"
+							disabled={!distanceUnitChanged || unitConverting}
+							onclick={() => (showUnitConversionDialog = true)}
+						>
+							{$_('vehicle.edit.measurementUnit.review')}
+						</button>
+					</div>
+				</div>
+			</form>
+		</details>
+	{/if}
+
+	<div class="divider"></div>
+
 	<!-- Settings -->
 	<section class="edit-section">
 		<h2 class="section-label">{$_('vehicle.edit.settings.title')}</h2>
@@ -488,10 +492,14 @@
 
 <ConfirmDialog
 	open={showUnitConversionDialog}
-	title="Convert {data.vehicle.odometer_unit} to {selectedDistanceUnit}?"
-	description={`Your current reading will become ${formatNumber(convertedCurrentReading, locale)} ${selectedDistanceUnit}. Odometer history, service records, maintenance intervals, and distance-based reminders will remain aligned.`}
-	confirmLabel="Convert distances"
-	cancelLabel="Cancel"
+	title={$_('vehicle.edit.measurementUnit.dialogTitle', {
+		values: { from: data.vehicle.odometer_unit, to: selectedDistanceUnit }
+	})}
+	description={$_('vehicle.edit.measurementUnit.dialogDescription', {
+		values: { value: formatNumber(convertedCurrentReading, locale), unit: selectedDistanceUnit }
+	})}
+	confirmLabel={$_('vehicle.edit.measurementUnit.confirm')}
+	cancelLabel={$_('common.cancel')}
 	danger={false}
 	loading={unitConverting}
 	onconfirm={() => unitConversionForm?.requestSubmit()}
@@ -635,7 +643,7 @@
 		color: var(--text);
 		margin: 0;
 	}
-	.page-sub {
+	.section-sub {
 		font-size: var(--text-sm);
 		color: var(--text-muted);
 		margin: 0;
@@ -669,6 +677,34 @@
 	}
 	.section-label--danger {
 		color: var(--status-overdue);
+	}
+
+	.unit-section__summary {
+		display: flex;
+		align-items: center;
+		gap: var(--space-2);
+		margin: 0;
+		cursor: pointer;
+		list-style: none;
+	}
+	.unit-section__summary::-webkit-details-marker {
+		display: none;
+	}
+	.unit-section__summary::after {
+		content: '';
+		width: 6px;
+		height: 6px;
+		margin-left: auto;
+		border-right: 1.5px solid var(--text-subtle);
+		border-bottom: 1.5px solid var(--text-subtle);
+		transform: rotate(-45deg);
+		transition: transform 150ms ease;
+	}
+	.unit-section[open] .unit-section__summary {
+		margin-bottom: var(--space-4);
+	}
+	.unit-section[open] .unit-section__summary::after {
+		transform: rotate(45deg);
 	}
 
 	.settings-box {

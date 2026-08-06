@@ -55,7 +55,10 @@ sw.addEventListener('fetch', (event) => {
 				throw new Error('invalid response from fetch');
 			}
 
-			if (response.status === 200) {
+			// API responses carry per-user data that would outlive the session; keep page shells only
+			const cacheable = url.origin === sw.location.origin && !url.pathname.startsWith('/api/');
+
+			if (response.status === 200 && cacheable) {
 				cache.put(event.request, response.clone());
 			}
 

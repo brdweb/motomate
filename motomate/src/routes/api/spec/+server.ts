@@ -4,7 +4,7 @@ import type { RequestHandler } from '@sveltejs/kit';
 const APP_VERSION = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '0.0.0';
 
 const spec = {
-	openapi: '3.1.0',
+	openapi: '3.2.0',
 	info: {
 		title: 'MotoMate API',
 		version: APP_VERSION,
@@ -913,6 +913,46 @@ const spec = {
 					'404': {
 						description: 'Not found',
 						content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } }
+					}
+				}
+			}
+		}
+	},
+	webhooks: {
+		notification: {
+			post: {
+				summary: 'Workflow notification',
+				description:
+					'Sent by MotoMate to the URL you set in Settings > Workflows whenever one of your rules fires. This is a request your endpoint receives, not one you call.\n\nThe `Authorization` header is whatever you entered alongside the URL, sent verbatim. Redirects are not followed, the request times out after 5 seconds, and any non-2xx response is logged and dropped without a retry, so treat delivery as best effort.',
+				operationId: 'workflowNotification',
+				security: [],
+				requestBody: {
+					required: true,
+					content: {
+						'application/json': {
+							schema: {
+								type: 'object',
+								required: ['event', 'title', 'body', 'vehicle_name', 'timestamp', 'data'],
+								properties: {
+									event: { type: 'string', enum: ['motomate_notification'] },
+									title: { type: 'string', example: 'Chain lube overdue' },
+									body: { type: 'string', example: 'CB500F is 100 km past due for chain lube.' },
+									vehicle_name: { type: 'string', example: 'CB500F' },
+									timestamp: { type: 'string', format: 'date-time' },
+									data: {
+										type: 'object',
+										description:
+											'Template variables for the rule that fired. Always carries `vehicle_name`; the rest depend on the trigger.',
+										additionalProperties: { type: ['string', 'number'] }
+									}
+								}
+							}
+						}
+					}
+				},
+				responses: {
+					'2XX': {
+						description: 'Any 2xx counts as delivered. Anything else is logged and dropped.'
 					}
 				}
 			}

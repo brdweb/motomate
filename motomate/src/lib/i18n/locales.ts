@@ -20,7 +20,3 @@ export const SUPPORTED_LANGUAGES = [
 	{ code: 'pt', label: 'Português' },
 	{ code: 'ro', label: 'Română' }
 ] as const;
-
-export function getLocale<T>(map: Record<string, T>, locale: string): T {
-	return map[locale in map ? locale : 'en'];
-}

@@ -1,7 +1,6 @@
 <script lang="ts">
 	import type { PageData } from './$types';
 	import { _ } from '$lib/i18n';
-	import PageHeader from '$lib/components/ui/PageHeader.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
 
@@ -78,9 +77,13 @@
 	});
 </script>
 
-<PageHeader title={$_('settings.changelog.title')} subtitle={$_('settings.changelog.subtitle')}>
+<div class="intro">
+	<div class="intro-text">
+		<h2 class="section-title">{$_('settings.changelog.title')}</h2>
+		<p class="section-desc">{$_('settings.changelog.subtitle')}</p>
+	</div>
 	<Button href="?refresh=1" variant="ghost" size="md">{$_('settings.changelog.refresh')}</Button>
-</PageHeader>
+</div>
 
 {#if blocks.length === 0}
 	<EmptyState icon="📋" title={$_('settings.changelog.noContent')} />
@@ -287,5 +290,33 @@
 	.footer-sep {
 		color: var(--text-subtle);
 		font-size: var(--text-sm);
+	}
+
+	.intro {
+		display: flex;
+		align-items: flex-start;
+		justify-content: space-between;
+		gap: var(--space-4);
+		flex-wrap: wrap;
+		margin-bottom: var(--space-5);
+	}
+
+	.intro-text {
+		min-width: 0;
+	}
+
+	.section-title {
+		font-size: var(--text-2xl);
+		font-weight: 600;
+		color: var(--text);
+		margin: 0 0 var(--space-2);
+		letter-spacing: -0.02em;
+	}
+
+	.section-desc {
+		font-size: var(--text-sm);
+		color: var(--text-muted);
+		line-height: var(--leading-base);
+		margin: 0;
 	}
 </style>

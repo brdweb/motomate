@@ -49,7 +49,9 @@
 		untrack(() => (_initDraft?.fields.content as string) ?? editData?.content ?? '')
 	);
 
-	let isViewMode = $state(untrack(() => viewMode && !!editData));
+	// Opened as a preview, so cancelling an edit goes back to it rather than closing the sheet
+	const openedAsPreview = untrack(() => viewMode && !!editData);
+	let isViewMode = $state(openedAsPreview);
 	const renderedHtml = $derived(
 		isViewMode
 			? (marked.parse(contentValue) as string).replace(
@@ -85,6 +87,18 @@
 		titleValue = '';
 		contentValue = '';
 		selectedDocIds = new Set();
+	}
+
+	function cancelEdit() {
+		if (!openedAsPreview) {
+			sheet.closeSheet();
+			return;
+		}
+		// Drop the unsaved edits so the preview shows what is actually stored
+		titleValue = editData!.title ?? '';
+		contentValue = editData!.content;
+		selectedDocIds = new Set(editData!.doc_refs);
+		isViewMode = true;
 	}
 
 	function handleContentChange(markdown: string) {
@@ -190,8 +204,8 @@
 			<button type="submit" class="btn-primary" disabled={submitting || !contentValue.trim()}>
 				{submitting ? $_('common.saving') : $_('common.save')}
 			</button>
-			<button type="button" class="btn-ghost" onclick={() => sheet.closeSheet()}>
-				{$_('common.cancel')}
+			<button type="button" class="btn-ghost" onclick={cancelEdit}>
+				{openedAsPreview ? $_('common.back') : $_('common.cancel')}
 			</button>
 		</div>
 		<div class="form-download">

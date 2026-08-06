@@ -372,16 +372,11 @@
 		gap: var(--space-4);
 	}
 
+	/* The sheet is 420px on desktop, so paired fields stack rather than share a row */
 	.form-row {
-		display: grid;
-		grid-template-columns: 1fr 1fr;
-		gap: var(--space-3);
-	}
-
-	@media (max-width: 480px) {
-		.form-row {
-			grid-template-columns: 1fr;
-		}
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-4);
 	}
 
 	.field {

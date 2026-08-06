@@ -4,6 +4,7 @@
 	import { _ } from '$lib/i18n';
 	import { formatDateShort } from '$lib/utils/format.js';
 	import type { ApiKey } from '$lib/db/schema.js';
+	import { toasts } from '$lib/stores/toasts.svelte.js';
 
 	let { data, form } = $props<{
 		data: { keys: Omit<ApiKey, 'key_hash'>[]; locale: string };
@@ -27,6 +28,8 @@
 	let confirmingDelete = $state<string | null>(null);
 
 	$effect(() => {
+		if (form?.errorKey) toasts.error($_(form.errorKey));
+		else if (form?.error) toasts.error(form.error);
 		if (form?.newToken) {
 			newToken = form.newToken;
 			copied = false;
@@ -87,14 +90,10 @@
 
 <svelte:head><title>{$_('settings.developer.title')} · Settings</title></svelte:head>
 
-<h2 class="section-title">{$_('settings.developer.title')}</h2>
-<p class="section-sub">{$_('settings.developer.subtitle')}</p>
-
-{#if form?.errorKey}
-	<div class="banner banner--err">{$_(form.errorKey)}</div>
-{:else if form?.error}
-	<div class="banner banner--err">{form.error}</div>
-{/if}
+<div class="intro">
+	<h2 class="section-title">{$_('settings.developer.title')}</h2>
+	<p class="section-desc">{$_('settings.developer.subtitle')}</p>
+</div>
 
 <section class="setting-section">
 	<h3 class="sub-title">{$_('settings.developer.apiKeys.title')}</h3>
@@ -316,10 +315,10 @@
 	{/if}
 </section>
 
-<section class="setting-section">
-	<h3 class="sub-title">{$_('settings.developer.docs.title')}</h3>
-	<p class="desc">{$_('settings.developer.docs.description')}</p>
-	<div class="doc-links">
+<div class="action-card">
+	<span class="action-title">{$_('settings.developer.docs.title')}</span>
+	<span class="action-desc">{$_('settings.developer.docs.description')}</span>
+	<div class="action-row">
 		<a href="/api/docs" target="_blank" rel="noopener" class="btn-secondary">
 			{$_('settings.developer.docs.link')}
 		</a>
@@ -327,7 +326,7 @@
 			{$_('settings.developer.docs.specLink')}
 		</a>
 	</div>
-</section>
+</div>
 
 <style>
 	.section-title {
@@ -337,11 +336,14 @@
 		margin: 0 0 var(--space-2);
 		letter-spacing: -0.02em;
 	}
-	.section-sub {
+	.intro {
+		margin-bottom: var(--space-5);
+	}
+	.section-desc {
 		font-size: var(--text-sm);
 		color: var(--text-muted);
-		margin: 0 0 var(--space-6);
 		line-height: var(--leading-base);
+		margin: 0;
 	}
 	.sub-title {
 		font-size: var(--text-lg);
@@ -502,12 +504,14 @@
 	}
 	.input {
 		padding: 0.5rem 0.75rem;
-		border: 1px solid var(--border-strong);
-		border-radius: 10px;
+		border: 1px solid var(--border);
+		border-radius: 8px;
 		background: var(--bg-subtle);
 		color: var(--text);
-		font-size: var(--text-md);
+		font-size: max(1rem, 16px);
 		width: 100%;
+		transition: border-color 0.15s;
+		box-sizing: border-box;
 	}
 	.input:focus {
 		outline: 2px solid var(--accent);
@@ -515,10 +519,37 @@
 		border-color: transparent;
 	}
 
-	/* Doc links */
-	.doc-links {
+	/* Docs card */
+	.action-card {
+		border-radius: 10px;
+		padding: 1.25rem 1.5rem;
+		border: 1px solid var(--border);
+		background: var(--bg);
 		display: flex;
-		gap: 0.625rem;
+		flex-direction: column;
+		gap: 0.125rem;
+		transition: border-color 0.15s;
+	}
+	.action-card:hover {
+		border-color: var(--border-strong);
+	}
+	.action-title {
+		font-size: var(--text-base);
+		font-weight: 500;
+		color: var(--text);
+	}
+	.action-desc {
+		font-size: var(--text-sm);
+		color: var(--text-muted);
+		line-height: var(--leading-snug);
+	}
+	.action-row {
+		display: flex;
+		align-items: center;
+		gap: var(--space-3);
+		margin-top: var(--space-4);
+		padding-top: var(--space-4);
+		border-top: 1px solid var(--border);
 		flex-wrap: wrap;
 	}
 
@@ -587,11 +618,6 @@
 		font-size: var(--text-sm);
 		border: 1px solid;
 		margin-bottom: var(--space-4);
-	}
-	.banner--err {
-		background: color-mix(in srgb, var(--status-overdue) 8%, transparent);
-		border-color: color-mix(in srgb, var(--status-overdue) 25%, transparent);
-		color: var(--status-overdue);
 	}
 	.banner--warn {
 		background: color-mix(in srgb, var(--status-due) 8%, transparent);

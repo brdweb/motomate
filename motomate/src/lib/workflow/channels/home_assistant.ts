@@ -1,3 +1,5 @@
+import { assertSafeUrl } from '$lib/server/url-guard.js';
+
 export async function dispatchHomeAssistant(
 	webhookUrl: string,
 	title: string,
@@ -6,8 +8,10 @@ export async function dispatchHomeAssistant(
 	vars: Record<string, string | number>
 ): Promise<void> {
 	try {
+		await assertSafeUrl(webhookUrl);
 		const res = await fetch(webhookUrl, {
 			method: 'POST',
+			redirect: 'manual',
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify({
 				title,

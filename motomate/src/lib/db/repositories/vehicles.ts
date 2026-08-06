@@ -146,14 +146,7 @@ export async function updateVehicle(id: string, userId: string, input: unknown):
 		.where(and(eq(vehicles.id, id), eq(vehicles.user_id, userId)));
 }
 
-/**
- * Convert all distance data attached to one vehicle. This intentionally excludes hour-based
- * vehicles and runs as a single database transaction so labels and values cannot diverge.
- *
- * better-sqlite3 transactions require a synchronous callback. Drizzle's SQLite update builders
- * are lazy, so every update inside this callback must finish with `.run()` to execute before the
- * transaction commits.
- */
+/** Converts every distance on one vehicle in a single transaction; drizzle builders are lazy so each update needs `.run()` */
 export async function convertVehicleDistanceUnit(
 	id: string,
 	userId: string,
@@ -397,12 +390,7 @@ export async function deleteOdometerLog(
 		.where(and(eq(odometer_logs.id, id), eq(odometer_logs.vehicle_id, vehicleId)));
 }
 
-/**
- * Recomputes `current_odometer` as the max reading across all odometer_logs
- * and service_logs for the vehicle. Safe to call after any log edit or delete.
- * If no logs remain, resets to 0 so the vehicle can accept any new reading.
- * Returns the new odometer value.
- */
+/** Recomputes `current_odometer` as the max across odometer_logs and service_logs; resets to 0 when no logs remains */
 export async function recomputeCurrentOdometer(vehicleId: string, userId: string): Promise<number> {
 	const [vehicle, odoLogs, svcLogs] = await Promise.all([
 		getVehicleById(vehicleId, userId),

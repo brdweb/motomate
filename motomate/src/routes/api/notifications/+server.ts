@@ -5,7 +5,8 @@ import { markRead, markAllRead, getNotifications } from '$lib/workflow/channels/
 export const GET: RequestHandler = async ({ locals, url }) => {
 	if (!locals.user) error(401);
 	const limit = Math.min(Number(url.searchParams.get('limit') ?? '3'), 10);
-	const items = await getNotifications(locals.user.id, limit, 0, 'all');
+	const filter = url.searchParams.get('filter') === 'unread' ? 'unread' : 'all';
+	const items = await getNotifications(locals.user.id, limit, 0, filter);
 	return json(items);
 };
 

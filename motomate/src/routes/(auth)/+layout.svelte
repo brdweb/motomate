@@ -45,8 +45,7 @@
 		{ id: 'system', label: 'System', icon: Monitor }
 	] as const;
 
-	// Initialise synchronously so the component renders correctly on the first pass.
-	// Starting with dummy defaults and correcting in $effect causes a double-render flash.
+	// Initialise synchronously; correcting in $effect later causes a double-render flash
 	const initialTheme: 'light' | 'dark' | 'system' = browser ? readStoredTheme() : 'system';
 	const initialLocale: string = browser
 		? untrack(() => data.demoMode)

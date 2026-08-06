@@ -3,7 +3,7 @@ import { getTrackersByVehicle } from '$lib/db/repositories/maintenance.js';
 import { requireAuth, guardVehicle } from '$lib/api/guards.js';
 import { syncOdometer } from '$lib/api/effects.js';
 import { categorizeTrackers } from '$lib/api/attention.js';
-import { json } from '@sveltejs/kit';
+import { ok } from '$lib/api/response.js';
 
 export const GET: RequestHandler = async ({ locals, params }) => {
 	const authErr = requireAuth(locals);
@@ -33,13 +33,11 @@ export const GET: RequestHandler = async ({ locals, params }) => {
 		})
 	);
 
-	return json({
-		data: {
-			current_odometer: trueOdo,
-			odometer_unit: vehicle.odometer_unit,
-			overdue,
-			due,
-			upcoming
-		}
+	return ok({
+		current_odometer: trueOdo,
+		odometer_unit: vehicle.odometer_unit,
+		overdue,
+		due,
+		upcoming
 	});
 };

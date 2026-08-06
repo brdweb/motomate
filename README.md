@@ -20,6 +20,13 @@ We want to make it incredibly simple for riders and vehicle enthusiasts to host 
 
 You can run MotoMate locally using Docker Compose:
 
+```sh
+# You need to generate a random AUTH_SECRET first:
+echo "AUTH_SECRET=$(openssl rand -hex 32)" > .env
+```
+
+Then save the following contents into your `docker-compose.yml` file:
+
 ```yaml
 services:
   motomate:
@@ -33,15 +40,17 @@ services:
       - TZ=Europe/Amsterdam
       - PUBLIC_APP_URL=http://localhost:3000
       - PUBLIC_APP_ORIGINS=http://localhost
+      - AUTH_SECRET=${AUTH_SECRET}
+      - AUTH_ALLOW_REGISTRATION=false
       - AUTH_COOKIE_SECURE=false
-      - AUTH_SECRET=change-me-in-production-min-32-chars
-      - AUTH_ALLOW_REGISTRATION=true
-      - STORAGE_ADAPTER=local
-      - BODY_SIZE_LIMIT=20971520
     restart: unless-stopped
 ```
 
 After downloading the image and starting the container, the application will be ready in a few seconds once database migrations complete.
+
+## Integrations
+
+MotoMate exposes a complete OpenAPI interface for custom API integrations. It supports configurable notification handlers for alerts and it connects directly with S3-compatible object storage and [Paperless-ngx](https://github.com/paperless-ngx/paperless-ngx) for automated document backups.
 
 ## Donate
 
@@ -57,27 +66,21 @@ This project is licensed under the **AGPL 3.0** license. See [LICENSE](LICENSE) 
 ## Contributors
 
 Made possible thanks to the following people:
+
 <!-- ALL-CONTRIBUTORS-LIST:START - Do not remove or modify this section -->
 <!-- prettier-ignore-start -->
 <!-- markdownlint-disable -->
 <table>
   <tbody>
     <tr>
-      <td align="center" valign="top" width="14.28%"><a href="https://github.com/hawkinslabdev"><img src="https://avatars.githubusercontent.com/u/59891413?v=4?s=100" width="100px;" alt="[dan]"/><br /><sub><b>Dan</b></sub></a><br /><a href="https://github.com/hawkinslabdev/motomate/commits?author=hawkinslabdev" title="Code">🚀🤔</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/hawkinslabdev"><img src="https://avatars.githubusercontent.com/u/59891413?v=4?s=100" width="100px;" alt="Dan"/><br /><sub><b>Dan</b></sub></a><br /><a href="https://github.com/hawkinslabdev/motomate/commits?author=hawkinslabdev" title="Code">💻</a> <a href="#ideas-hawkinslabdev" title="Ideas, Planning, & Feedback">🤔</a></td>
       <td align="center" valign="top" width="14.28%"><a href="https://www.varrieur.dev/"><img src="https://avatars.githubusercontent.com/u/1863155?v=4?s=100" width="100px;" alt="Michael Varrieur"/><br /><sub><b>Michael Varrieur</b></sub></a><br /><a href="https://github.com/hawkinslabdev/motomate/commits?author=mvarrieur" title="Code">💻</a></td>
-       <td align="center" valign="top" width="14.28%"><a href="https://github.com/gg64nou"><img src="https://avatars.githubusercontent.com/u/3111206?v=4?s=100" width="100px;" alt="Ovidiu"/><br /><sub><b>Ovidiu</b></sub></a><br /><a href="#translation-gg64nou" title="Translation">🌍</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/gg64nou"><img src="https://avatars.githubusercontent.com/u/3111206?v=4?s=100" width="100px;" alt="Ovidiu"/><br /><sub><b>Ovidiu</b></sub></a><br /><a href="#translation-gg64nou" title="Translation">🌍</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="http://ovidiu.nl"><img src="https://avatars.githubusercontent.com/u/63847?v=4?s=100" width="100px;" alt="Ovidiu Curcan"/><br /><sub><b>Ovidiu Curcan</b></sub></a><br /><a href="https://github.com/hawkinslabdev/motomate/commits?author=Ovidiu" title="Code">💻</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/brdweb"><img src="https://avatars.githubusercontent.com/u/58915?v=4?s=100" width="100px;" alt="Jason Mitchell"/><br /><sub><b>Jason Mitchell</b></sub></a><br /><a href="https://github.com/hawkinslabdev/motomate/commits?author=brdweb" title="Code">💻</a></td>
     </tr>
   </tbody>
 </table>
-
-<!-- markdownlint-restore -->
-<!-- prettier-ignore-end -->
-
-<!-- ALL-CONTRIBUTORS-LIST:END -->
-
-<!-- ALL-CONTRIBUTORS-LIST:START - Do not remove or modify this section -->
-<!-- prettier-ignore-start -->
-<!-- markdownlint-disable -->
 
 <!-- markdownlint-restore -->
 <!-- prettier-ignore-end -->

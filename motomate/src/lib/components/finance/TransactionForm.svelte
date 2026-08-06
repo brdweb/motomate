@@ -21,6 +21,7 @@
 		performed_at: string;
 		odometer_at_transaction?: number | null;
 		notes?: string | null;
+		attachments?: string[] | null;
 	}
 
 	let {
@@ -115,7 +116,8 @@
 	let attachFile = $state<File | null>(null);
 	let attachType = $state('other');
 	let showLinkNew = $state(false);
-	let newLinkedDocIds = new SvelteSet<string>();
+	// Seeded with what the transaction already has, so editing submits the kept list and drops removals
+	let newLinkedDocIds = new SvelteSet<string>(untrack(() => editData?.attachments ?? []));
 
 	const docMap = $derived(new Map(allDocs.map((d) => [d.id, d])));
 
@@ -398,16 +400,11 @@
 		text-decoration: underline;
 	}
 
+	/* The sheet is 420px on desktop, so paired fields stack rather than share a row */
 	.form-row {
-		display: grid;
-		grid-template-columns: 1fr 1fr;
-		gap: var(--space-3);
-	}
-
-	@media (max-width: 480px) {
-		.form-row {
-			grid-template-columns: 1fr;
-		}
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-4);
 	}
 
 	.field {

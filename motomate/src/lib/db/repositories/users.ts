@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { db } from '../index.js';
 import { users } from '../schema.js';
 import { CreateUserSchema, UserSettingsSchema } from '../../validators/schemas.js';
@@ -36,6 +36,18 @@ export async function getUserByEmail(email: string): Promise<User | undefined> {
 
 export async function getUserById(id: string): Promise<User | undefined> {
 	return db.query.users.findFirst({ where: eq(users.id, id) });
+}
+
+// Scheduler fan-out: only users who actually switched an integration on.
+export async function getUserIdsWithIntegrations(): Promise<string[]> {
+	const rows = await db
+		.select({ id: users.id })
+		.from(users)
+		.where(
+			sql`json_extract(settings, '$.integrations.s3.enabled') = 1
+				OR json_extract(settings, '$.integrations.paperless.enabled') = 1`
+		);
+	return rows.map((r) => r.id);
 }
 
 export async function updateUserSettings(

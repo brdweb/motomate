@@ -13,6 +13,7 @@
 	import { toasts } from '$lib/stores/toasts.svelte.js';
 	import { _, waitLocale } from '$lib/i18n';
 	import { sheet } from '$lib/stores/sheet.svelte.js';
+	import ServiceLogEditForm from '$lib/components/vehicle/ServiceLogEditForm.svelte';
 	import {
 		formatMeasurement,
 		formatDateShort,
@@ -61,7 +62,6 @@
 		}
 	});
 	let trackerMenu = $state<string | null>(null);
-	let editSubmitting = $state(false);
 	let deletingTracker = $state<{ id: string; name: string } | null>(null);
 	let skippingTracker = $state<{ id: string; name: string } | null>(null);
 	let historyTracker = $state<string | null>(null);
@@ -123,7 +123,6 @@
 		clearTimeout(_prefTimer);
 		_prefTimer = setTimeout(flushPrefs, 600);
 	});
-	let editingLog = $state<string | null>(null);
 	let logMenu = $state<string | null>(null);
 
 	const averageKmPerMonth = $derived.by(() => {
@@ -211,6 +210,16 @@
 		historyTracker = null;
 	}
 
+	function openLogEdit(log: (typeof data.allServiceLogs)[number]) {
+		logMenu = null;
+		sheet.openSheet(ServiceLogEditForm, $_('common.edit'), {
+			editLog: log,
+			trackers: data.trackers,
+			allDocs: data.allDocs ?? [],
+			odometerUnit: data.vehicle.odometer_unit
+		});
+	}
+
 	function getForecastDate(tracker: (typeof data.trackers)[number]): string | null {
 		if (!tracker.last_done_at) return null;
 		const lastDate = new Date(tracker.last_done_at);
@@ -262,6 +271,9 @@
 			if (f?.taskError) {
 				toasts.error(String(f.taskError));
 			}
+			if (f?.editError) {
+				toasts.error(String(f.editError));
+			}
 			if (f?.defaultsApplied) {
 				toasts.success($_('maintenance.toasts.defaultsApplied'));
 			}
@@ -282,26 +294,14 @@
 			}, 50);
 		}
 	});
-
-	$effect(() => {
-		const id = editingLog;
-		if (id && typeof window !== 'undefined') {
-			requestAnimationFrame(() => {
-				document.querySelector(`[data-edit-log="${id}"]`)?.scrollIntoView({
-					behavior: 'smooth',
-					block: 'center'
-				});
-			});
-		}
-	});
 </script>
 
 <svelte:head><title>{$_('maintenance.title')} · {data.vehicle.name}</title></svelte:head>
 
 <div class="page-header">
 	<div class="page-header-text">
-		<h1 class="page-title">{$_('maintenance.title')}</h1>
-		<p class="page-sub">{$_('maintenance.subtitle')}</p>
+		<h2 class="section-title">{$_('maintenance.title')}</h2>
+		<p class="section-sub">{$_('maintenance.subtitle')}</p>
 	</div>
 	<div class="page-actions">
 		{#if data.trackers.length > 0}
@@ -520,133 +520,12 @@
 												<button
 													role="menuitem"
 													class="entry-menu-item"
-													onclick={() => {
-														editingLog = log.id;
-														logMenu = null;
-													}}>{$_('common.edit')}</button
+													onclick={() => openLogEdit(log)}>{$_('common.edit')}</button
 												>
 											</div>
 										{/if}
 									</div>
 								</div>
-								{#if editingLog === log.id}
-									<div class="entry-edit-card" data-edit-log={log.id}>
-										<form
-											method="POST"
-											action="?/editServiceLog"
-											class="entry-edit-form"
-											use:enhance={() => {
-												editSubmitting = true;
-												return async ({ update }) => {
-													await update();
-													editSubmitting = false;
-													editingLog = null;
-												};
-											}}
-										>
-											<input type="hidden" name="id" value={log.id} />
-											<div class="form-row">
-												<label class="field">
-													<span class="field-label">{$_('maintenance.editLog.date')}</span>
-													<input
-														type="date"
-														name="performed_at"
-														value={log.performed_at}
-														class="input"
-														required
-													/>
-												</label>
-												<label class="field">
-													<span class="field-label">{measurementFieldLabel}</span>
-													<input
-														type="number"
-														name="odometer_at_service"
-														min="0"
-														value={log.odometer_at_service}
-														class="input mono"
-														required
-													/>
-												</label>
-											</div>
-											{#if data.trackers.length > 0}
-												<fieldset class="tracker-select">
-													<legend class="field-label"
-														>{$_('vehicle.forms.fields.resetCycle', {
-															values: { optional: $_('vehicle.forms.fields.checkToReset') }
-														})}</legend
-													>
-													<div class="tracker-checkboxes">
-														{#each data.trackers as t}
-															<label class="tracker-checkbox">
-																<input
-																	type="checkbox"
-																	name="reset_trackers"
-																	value={t.id}
-																	checked={log.tracker_id === t.id ||
-																		(log.serviced_tracker_ids ?? []).includes(t.id)}
-																/>
-																<span class="tracker-check-label">
-																	<span class="tracker-check-name">{t.template.name}</span>
-																	{#if t.status === 'due'}
-																		<span class="tracker-check-status tracker-check-status--due"
-																			>{$_('maintenance.tracker.status.due')}</span
-																		>
-																	{:else if t.status === 'overdue'}
-																		<span class="tracker-check-status tracker-check-status--overdue"
-																			>{$_('maintenance.tracker.status.overdue')}</span
-																		>
-																	{/if}
-																</span>
-															</label>
-														{/each}
-													</div>
-												</fieldset>
-											{/if}
-											<label class="field">
-												<span class="field-label">{$_('maintenance.editLog.notes')}</span>
-												<input
-													type="text"
-													name="notes"
-													maxlength="200"
-													value={log.notes ?? ''}
-													class="input"
-												/>
-											</label>
-											<label class="field">
-												<span class="field-label">{$_('maintenance.editLog.remark')}</span>
-												<input
-													type="text"
-													name="remark"
-													maxlength="200"
-													value={log.remark ?? ''}
-													class="input"
-													placeholder={$_('maintenance.editLog.remarkPlaceholder')}
-												/>
-											</label>
-											<label class="field">
-												<span class="field-label">{$_('maintenance.editLog.cost')}</span>
-												<input
-													type="number"
-													name="cost"
-													min="0"
-													step="0.01"
-													value={log.cost_cents != null ? log.cost_cents / 100 : ''}
-													class="input mono"
-												/>
-											</label>
-											<div class="form-actions">
-												<button type="submit" class="btn-primary" disabled={editSubmitting}>
-													{editSubmitting
-														? $_('maintenance.saving')
-														: $_('maintenance.editLog.save')}
-												</button>
-												<button type="button" class="btn-ghost" onclick={() => (editingLog = null)}
-													>{$_('common.cancel')}</button
-												>
-											</div>
-										</form>
-									</div>
-								{/if}
 							{/each}
 						</div>
 					{/each}
@@ -754,72 +633,13 @@
 														<button
 															role="menuitem"
 															class="entry-menu-item"
-															onclick={() => {
-																editingLog = log.id;
-																logMenu = null;
-															}}>{$_('common.edit')}</button
+															onclick={() => openLogEdit(log)}>{$_('common.edit')}</button
 														>
 													</div>
 												{/if}
 											</div>
 										</td>
 									</tr>
-									{#if editingLog === log.id}
-										<tr
-											><td colspan="99" class="htx-td-edit">
-												<form
-													method="POST"
-													action="?/editServiceLog"
-													use:enhance={() => {
-														return async ({ update }) => {
-															await update();
-															editingLog = null;
-														};
-													}}
-												>
-													<input type="hidden" name="id" value={log.id} />
-													<div class="form-row-compact">
-														<label class="field"
-															><span class="field-label">{$_('maintenance.editLog.date')}</span
-															><input
-																type="date"
-																name="performed_at"
-																value={log.performed_at}
-																class="input"
-															/></label
-														>
-														<label class="field"
-															><span class="field-label">{unitLabel}</span><input
-																type="number"
-																name="odometer_at_service"
-																value={log.odometer_at_service}
-																class="input mono"
-															/></label
-														>
-														<label class="field"
-															><span class="field-label">{$_('maintenance.editLog.cost')}</span
-															><input
-																type="number"
-																name="cost"
-																min="0"
-																step="0.01"
-																value={log.cost_cents != null ? log.cost_cents / 100 : ''}
-																class="input mono"
-															/></label
-														>
-													</div>
-													<div class="form-actions">
-														<button type="submit" class="btn-primary">{$_('common.save')}</button
-														><button
-															type="button"
-															class="btn-ghost"
-															onclick={() => (editingLog = null)}>{$_('common.cancel')}</button
-														>
-													</div>
-												</form>
-											</td></tr
-										>
-									{/if}
 								{/each}
 							</tbody>
 						</table>
@@ -1114,14 +934,13 @@
 		align-items: center;
 		flex-shrink: 0;
 	}
-	.page-title {
-		font-size: var(--text-2xl);
+	.section-title {
+		font-size: var(--text-lg);
 		font-weight: 600;
 		color: var(--text);
 		margin: 0;
-		line-height: var(--leading-tight);
 	}
-	.page-sub {
+	.section-sub {
 		font-size: var(--text-sm);
 		color: var(--text-muted);
 		margin: 0;
@@ -1290,22 +1109,6 @@
 	}
 
 	/* Inline edit form (appears below entry) - matches vehicle detail page */
-	.entry-edit-card {
-		border: 1px solid var(--border);
-		border-radius: 8px;
-		background: var(--bg-subtle);
-		padding: 1rem 1.25rem;
-		margin: 0 0 0 1.25rem;
-		display: flex;
-		flex-direction: column;
-		gap: 0;
-	}
-	.entry-edit-form {
-		display: flex;
-		flex-direction: column;
-		gap: 0.875rem;
-	}
-
 	/* Log form */
 	.log-form {
 		padding: 1.25rem;
@@ -1551,17 +1354,6 @@
 
 	.htx-td--center {
 		text-align: center;
-	}
-
-	.htx-td-edit {
-		padding: var(--space-4);
-	}
-
-	.form-row-compact {
-		display: flex;
-		gap: var(--space-3);
-		flex-wrap: wrap;
-		margin-bottom: var(--space-3);
 	}
 
 	.sort-arrow {

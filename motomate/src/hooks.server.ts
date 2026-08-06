@@ -4,6 +4,7 @@ import { env } from '$env/dynamic/private';
 import { env as pubEnv } from '$env/dynamic/public';
 import { initScheduler } from '$lib/server/scheduler.js';
 import { findUserByApiKey, updateKeyLastUsed } from '$lib/db/repositories/api-keys.js';
+import { redactCredentials } from '$lib/server/secrets.js';
 
 if (!env.AUTH_SECRET) {
 	throw new Error(
@@ -11,75 +12,62 @@ if (!env.AUTH_SECRET) {
 	);
 }
 
+// Signs file URLs and export tokens, keys ALTCHA, and derives the integration-credential key.
+const PLACEHOLDER_SECRETS = new Set([
+	'change-me-in-production-min-32-chars',
+	'change-me-in-production',
+	'changeme',
+	'secret'
+]);
+
+const SECRET_IS_WEAK = env.AUTH_SECRET.length < 32 || PLACEHOLDER_SECRETS.has(env.AUTH_SECRET);
+
+const WEAK_SECRET_MESSAGE =
+	'AUTH_SECRET is a known default or shorter than 32 characters. Anyone can forge download links and export tokens. Replace it with: openssl rand -hex 32 (this invalidates stored S3 and paperless credentials, re-enter them in Settings).';
+
 initScheduler();
 
-let _registrationChecked = false;
+let _secretChecked = false;
 
-async function warnIfRegistrationOpen(): Promise<void> {
-	_registrationChecked = true;
-	try {
-		const { hasAnyUser } = await import('$lib/db/repositories/users.js');
-		if ((await hasAnyUser()) && env.AUTH_ALLOW_REGISTRATION !== 'false') {
-			console.warn(
-				`${new Date().toLocaleString('sv')} [MotoMate] WARNING: Users exist but AUTH_ALLOW_REGISTRATION is not set to "false". Set AUTH_ALLOW_REGISTRATION=false in your .env to prevent unauthorized registration.`
-			);
-		}
-	} catch {
-		// non-fatal
+// Fatal on a fresh install, warning on an existing one: an upgrade must never stop a live deployment booting.
+async function checkSecret(): Promise<void> {
+	_secretChecked = true;
+	if (!SECRET_IS_WEAK) return;
+	const { hasAnyUser } = await import('$lib/db/repositories/users.js');
+	if (await hasAnyUser()) {
+		console.warn(`${new Date().toLocaleString('sv')} [MotoMate] WARNING: ${WEAK_SECRET_MESSAGE}`);
+		return;
 	}
+	console.error(`${new Date().toLocaleString('sv')} [MotoMate] ${WEAK_SECRET_MESSAGE}`);
+	process.exit(1);
 }
 
 let _demoSeeded = false;
 
-function isOriginTrusted(origin: string | null, referer: string | null, url: string): boolean {
-	const configuredOrigins = process.env.PUBLIC_APP_ORIGINS
-		? process.env.PUBLIC_APP_ORIGINS.split(',')
-		: [];
-
-	const normalizedOrigin =
-		origin === null || origin === 'null' || origin === 'undefined' ? null : origin;
-
-	let requestOrigin: string | null = normalizedOrigin;
-
-	if (!requestOrigin && referer) {
-		try {
-			requestOrigin = new URL(referer).origin;
-		} catch {
-			// ignore
-		}
+function hostnameOf(value: string): string | null {
+	try {
+		return new URL(value.includes('://') ? value : `http://${value}`).hostname;
+	} catch {
+		return null;
 	}
+}
 
-	if (!requestOrigin && url) {
-		try {
-			requestOrigin = new URL(url).origin;
-		} catch {
-			// ignore
-		}
-	}
+// Validates mutations against hostnames this deployment serves (ignoring protocol for TLS proxies); rejects requests missing origin
+export function isOriginTrusted(
+	origin: string | null,
+	referer: string | null,
+	url: string
+): boolean {
+	const claimed =
+		origin && origin !== 'null' && origin !== 'undefined' ? origin : (referer ?? null);
+	if (!claimed) return false;
 
-	if (requestOrigin) {
-		for (const trusted of configuredOrigins) {
-			try {
-				const trustedOrigin = trusted.includes('://')
-					? new URL(trusted).origin
-					: `http://${trusted}`;
-				const originUrl = new URL(requestOrigin);
-				const trustedUrl = new URL(trustedOrigin);
+	const claimedHost = hostnameOf(claimed);
+	if (!claimedHost) return false;
 
-				if (originUrl.hostname === trustedUrl.hostname) {
-					return true;
-				}
-			} catch {
-				// skip
-			}
-		}
-
-		if (configuredOrigins.length > 0) {
-			return false;
-		}
-	}
-
-	return true;
+	return [url, ...(process.env.PUBLIC_APP_ORIGINS ?? '').split(',')]
+		.filter((candidate) => candidate.trim())
+		.some((candidate) => hostnameOf(candidate) === claimedHost);
 }
 
 function buildCorsHeaders(requestOrigin: string | null): Record<string, string> {
@@ -128,7 +116,7 @@ function buildCorsHeaders(requestOrigin: string | null): Record<string, string> 
 }
 
 export const handle: Handle = async ({ event, resolve }) => {
-	if (!_registrationChecked) warnIfRegistrationOpen();
+	if (!_secretChecked) await checkSecret();
 
 	if (!_demoSeeded && pubEnv.PUBLIC_DEMO_ENABLED === 'true') {
 		_demoSeeded = true;
@@ -150,7 +138,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 		if (token.startsWith('mm_')) {
 			const result = await findUserByApiKey(token);
 			if (result) {
-				event.locals.user = result.user;
+				event.locals.user = redactCredentials(result.user);
 				event.locals.isApiKeyAuth = true;
 				event.locals.apiKeyId = result.keyId;
 				event.locals.apiKeyScope = result.scope;
@@ -169,12 +157,19 @@ export const handle: Handle = async ({ event, resolve }) => {
 				}
 			});
 
-			// CORS * is intentional here: /api/v1/ is accessed via Bearer tokens, not cookies.
-			// Browsers never auto-send Bearer headers cross-origin, so * does not widen attack surface.
-			// Session-based routes are protected by the origin check above.
+			// Handles preflight OPTIONS requests and sets required CORS headers for Bearer token auth
 			if (event.url.pathname.startsWith('/api/v1/')) {
 				response.headers.set('Access-Control-Allow-Origin', '*');
+				response.headers.set('Access-Control-Allow-Headers', 'Authorization, Content-Type');
+				response.headers.set(
+					'Access-Control-Allow-Methods',
+					'GET, POST, PUT, PATCH, DELETE, OPTIONS'
+				);
 				response.headers.delete('Access-Control-Allow-Credentials');
+
+				if (event.request.method === 'OPTIONS') {
+					return new Response(null, { status: 204, headers: response.headers });
+				}
 			}
 			return response;
 		}
@@ -234,7 +229,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 		});
 	}
 
-	event.locals.user = user;
+	event.locals.user = user ? redactCredentials(user) : user;
 	event.locals.session = session;
 
 	const response = await resolve(event, {

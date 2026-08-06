@@ -3,6 +3,7 @@
 	import type { PageData } from './$types';
 	import type { RuleTrigger } from '$lib/db/schema.js';
 	import type { NextFireInfo } from '$lib/workflow/preview-core.js';
+	import { lastFiredAt } from '$lib/workflow/engine-utils.js';
 	import { _, waitLocale } from '$lib/i18n';
 	import { formatDateTime, formatDateLong } from '$lib/utils/format';
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
@@ -130,19 +131,9 @@
 	<title>{$_('settings.workflows.title')} · {$_('layout.nav.settings')}</title>
 </svelte:head>
 
-<div class="wf-header">
-	<div class="wf-header-text">
-		<h2 class="section-title">{$_('settings.workflows.title')}</h2>
-		<p class="section-sub">{$_('settings.workflows.subtitle')}</p>
-	</div>
-	<div class="wf-header-actions">
-		<button class="btn-secondary" onclick={runCheck} disabled={runningCheck}>
-			{runningCheck ? '...' : $_('settings.workflows.runCheck')}
-		</button>
-		<form method="POST" action="?/seedPresets" use:enhance>
-			<button type="submit" class="btn-primary">{$_('settings.workflows.loadPresets')}</button>
-		</form>
-	</div>
+<div class="intro">
+	<h2 class="section-title">{$_('settings.workflows.title')}</h2>
+	<p class="section-desc">{$_('settings.workflows.subtitle')}</p>
 </div>
 
 {#if data.rules.length === 0}
@@ -150,6 +141,7 @@
 {:else}
 	<div class="rule-list">
 		{#each data.rules as rule}
+			{@const firedAt = lastFiredAt(rule.last_triggered_at)}
 			<div class="rule-row">
 				<!-- Toggle -->
 				<form
@@ -199,11 +191,11 @@
 						}}
 					>
 						<span class="rule-last-fired">
-							{#if rule.last_triggered_at}
+							{#if firedAt}
 								{$_('settings.workflows.lastFired', {
 									values: {
 										date: formatDateTime(
-											rule.last_triggered_at,
+											firedAt,
 											data.user?.settings?.locale ?? 'en',
 											data.user?.timezone
 										)
@@ -410,6 +402,19 @@
 	</div>
 {/if}
 
+<div class="action-card">
+	<span class="action-title">{$_('settings.workflows.actions.title')}</span>
+	<span class="action-desc">{$_('settings.workflows.actions.description')}</span>
+	<div class="action-row">
+		<form method="POST" action="?/seedPresets" use:enhance>
+			<button type="submit" class="save-btn">{$_('settings.workflows.loadPresets')}</button>
+		</form>
+		<button type="button" class="test-btn" onclick={runCheck} disabled={runningCheck}>
+			{runningCheck ? $_('common.loading') : $_('settings.workflows.runCheck')}
+		</button>
+	</div>
+</div>
+
 <!-- Delete confirmation dialog -->
 {#if deletingRule}
 	<form
@@ -448,17 +453,8 @@
 {/if}
 
 <style>
-	.wf-header {
-		display: flex;
-		align-items: flex-start;
-		justify-content: space-between;
+	.intro {
 		margin-bottom: var(--space-5);
-		flex-wrap: wrap;
-		gap: var(--space-3);
-	}
-	.wf-header-text {
-		flex: 1;
-		min-width: 0;
 	}
 	.section-title {
 		font-size: var(--text-2xl);
@@ -467,19 +463,49 @@
 		margin: 0 0 var(--space-2);
 		letter-spacing: -0.02em;
 	}
-	.section-sub {
+	.section-desc {
 		font-size: var(--text-sm);
 		color: var(--text-muted);
-		margin: 0 0 var(--space-4);
 		line-height: var(--leading-base);
+		margin: 0;
 	}
-	.wf-header-actions {
+
+	/* Page actions */
+	.action-card {
+		border-radius: 10px;
+		padding: 1.25rem 1.5rem;
+		border: 1px solid var(--border);
+		background: var(--bg);
+		margin-top: var(--space-5);
 		display: flex;
-		gap: var(--space-3);
-		align-items: center;
+		flex-direction: column;
+		gap: 0.125rem;
+		transition: border-color 0.15s;
 	}
-	.btn-primary {
-		padding: 0.5rem 0.875rem;
+	.action-card:hover {
+		border-color: var(--border-strong);
+	}
+	.action-title {
+		font-size: var(--text-base);
+		font-weight: 500;
+		color: var(--text);
+	}
+	.action-desc {
+		font-size: var(--text-sm);
+		color: var(--text-muted);
+		line-height: var(--leading-snug);
+	}
+	.action-row {
+		display: flex;
+		align-items: center;
+		gap: var(--space-3);
+		margin-top: var(--space-4);
+		padding-top: var(--space-4);
+		border-top: 1px solid var(--border);
+		flex-wrap: wrap;
+	}
+	.save-btn {
+		padding: 0.5rem 1rem;
 		background: var(--accent);
 		color: #fff;
 		border: none;
@@ -487,26 +513,31 @@
 		font-size: var(--text-sm);
 		font-weight: 500;
 		cursor: pointer;
+		transition: background 0.15s;
 	}
-	.btn-primary:hover {
+	.save-btn:hover:not(:disabled) {
 		background: var(--accent-hover);
 	}
-	.btn-secondary {
-		padding: 0.5rem 0.875rem;
-		background: none;
-		color: var(--text);
-		border: 1px solid var(--border-strong);
-		border-radius: 10px;
+	.test-btn {
+		padding: 0.375rem 0.75rem;
 		font-size: var(--text-sm);
 		font-weight: 500;
+		border-radius: 6px;
 		cursor: pointer;
+		background: none;
+		border: 1px solid var(--border);
+		color: var(--text-muted);
+		transition:
+			background 0.15s,
+			border-color 0.15s;
 	}
-	.btn-secondary:hover:not(:disabled) {
-		background: var(--bg-muted);
+	.test-btn:hover:not(:disabled) {
+		border-color: var(--border-strong);
+		color: var(--text);
 	}
-	.btn-secondary:disabled {
+	.test-btn:disabled {
 		opacity: 0.5;
-		cursor: not-allowed;
+		cursor: default;
 	}
 
 	.empty-msg {
@@ -750,20 +781,6 @@
 	}
 
 	@media (max-width: 600px) {
-		.wf-header {
-			flex-direction: column;
-		}
-		.wf-header-actions {
-			width: 100%;
-			flex-direction: column;
-		}
-		.wf-header-actions form {
-			width: 100%;
-		}
-		.wf-header-actions .btn-primary,
-		.wf-header-actions .btn-secondary {
-			width: 100%;
-		}
 		.rule-row {
 			flex-wrap: wrap;
 			gap: var(--space-3);

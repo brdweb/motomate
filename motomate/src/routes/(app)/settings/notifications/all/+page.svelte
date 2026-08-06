@@ -5,7 +5,6 @@
 	import type { PageData } from './$types';
 	import { _, waitLocale } from '$lib/i18n';
 	import { formatDateTime } from '$lib/utils/format';
-	import PageHeader from '$lib/components/ui/PageHeader.svelte';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
 
@@ -43,28 +42,32 @@
 
 <a href="/settings/notifications" class="back-link">{$_('settings.notifications.title')}</a>
 
-<PageHeader title={$_('settings.notifications.allTitle')}>
-	{#if hasUnread}
-		<form method="POST" action="?/markAllRead" use:enhance>
-			<button type="submit" class="text-action">{$_('settings.notifications.markAllRead')}</button>
-		</form>
-	{/if}
-	{#if data.filter === 'all'}
-		<form
-			method="POST"
-			action="?/deleteRead"
-			use:enhance={() => {
-				return async ({ update }) => {
-					await update({ reset: false });
-				};
-			}}
-		>
-			<button type="submit" class="text-action text-action--danger">
-				{$_('settings.notifications.deleteRead')}
-			</button>
-		</form>
-	{/if}
-</PageHeader>
+<div class="intro">
+	<h2 class="section-title">{$_('settings.notifications.allTitle')}</h2>
+	<div class="intro-actions">
+		{#if hasUnread}
+			<form method="POST" action="?/markAllRead" use:enhance>
+				<button type="submit" class="text-action">{$_('settings.notifications.markAllRead')}</button
+				>
+			</form>
+		{/if}
+		{#if data.filter === 'all'}
+			<form
+				method="POST"
+				action="?/deleteRead"
+				use:enhance={() => {
+					return async ({ update }) => {
+						await update({ reset: false });
+					};
+				}}
+			>
+				<button type="submit" class="text-action text-action--danger">
+					{$_('settings.notifications.deleteRead')}
+				</button>
+			</form>
+		{/if}
+	</div>
+</div>
 
 <!-- Filter tabs -->
 <div class="filter-tabs">
@@ -160,6 +163,27 @@
 {/if}
 
 <style>
+	.intro {
+		display: flex;
+		align-items: flex-start;
+		justify-content: space-between;
+		gap: var(--space-4);
+		flex-wrap: wrap;
+		margin-bottom: var(--space-5);
+	}
+	.intro-actions {
+		display: flex;
+		gap: var(--space-2);
+		align-items: center;
+		flex-shrink: 0;
+	}
+	.section-title {
+		font-size: var(--text-2xl);
+		font-weight: 600;
+		color: var(--text);
+		margin: 0;
+		letter-spacing: -0.02em;
+	}
 	.back-link {
 		display: inline-block;
 		font-size: var(--text-sm);
@@ -270,7 +294,6 @@
 		font-size: var(--text-xs);
 		color: var(--text-subtle);
 		margin-top: 0.25rem;
-		font-family: var(--font-mono);
 		font-variant-numeric: tabular-nums;
 	}
 

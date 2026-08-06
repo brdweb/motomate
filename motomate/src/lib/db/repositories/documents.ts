@@ -1,4 +1,4 @@
-import { eq, and, sql, inArray, or, like } from 'drizzle-orm';
+import { eq, and, asc, sql, inArray, or, like } from 'drizzle-orm';
 import { db } from '../index.js';
 import { documents } from '../schema.js';
 import { CreateDocumentSchema } from '../../validators/schemas.js';
@@ -69,6 +69,13 @@ export async function getDocumentsByVehicleTotal(
 	return count;
 }
 
+export async function getDocumentsByUser(userId: string): Promise<Document[]> {
+	return db.query.documents.findMany({
+		where: eq(documents.user_id, userId),
+		orderBy: [asc(documents.created_at)]
+	});
+}
+
 export async function getDocumentByStorageKey(storageKey: string): Promise<Document | undefined> {
 	return db.query.documents.findFirst({
 		where: eq(documents.storage_key, storageKey)
@@ -84,12 +91,6 @@ export async function getDocumentsByIds(ids: string[], userId: string): Promise<
 	return db.query.documents.findMany({
 		where: and(inArray(documents.id, ids), eq(documents.user_id, userId))
 	}) as Promise<Document[]>;
-}
-
-export async function getDocumentById(id: string, userId: string): Promise<Document | undefined> {
-	return db.query.documents.findFirst({
-		where: and(eq(documents.id, id), eq(documents.user_id, userId))
-	});
 }
 
 export async function getRouteDocumentsByVehicle(

@@ -516,11 +516,20 @@
 				"imageTooLarge": "Bild zu groß (max. 2 MB)",
 				"invalidImageFormat": "Ungültiges Bildformat. Unterstützt: JPEG, PNG, WebP, GIF",
 				"invalidFileExt": "Ungültige Dateiendung. Unterstützt: .jpg, .jpeg, .png, .webp, .gif",
-				"uploadFailed": "Upload fehlgeschlagen: Speicherfehler"
+				"uploadFailed": "Upload fehlgeschlagen: Speicherfehler",
+				"chooseDistanceUnit": "Wähle Kilometer oder Meilen.",
+				"notDistanceConvertible": "Dieses Fahrzeug kann nicht in eine Distanzeinheit umgerechnet werden."
 			},
 			"measurementUnit": {
 				"title": "Messeinheit",
-				"locked": "Nach Erstellung gesperrt"
+				"locked": "Nach Erstellung gesperrt",
+				"eyebrow": "Aktueller Stand",
+				"summary": "Alle gespeicherten Daten gemeinsam umrechnen.",
+				"review": "Umrechnung prüfen",
+				"converted": "Distanzwerte umgerechnet",
+				"dialogTitle": "{from} in {to} umrechnen?",
+				"dialogDescription": "Dein aktueller Stand wird zu {value} {unit}. Kilometerstand-Verlauf, Serviceeinträge, Wartungsintervalle und distanzbasierte Erinnerungen bleiben abgestimmt.",
+				"confirm": "Distanzen umrechnen"
 			},
 			"usageUpdated": "Verbrauch aktualisiert"
 		},
@@ -719,10 +728,11 @@
 			"notSet": "Nicht gesetzt",
 			"addHint": "In Einstellungen → Kauf & Verkauf hinzufügen",
 			"expenses": "Ausgaben",
-			"transactions": "{count} Transaktion",
+			"transactions": "{count, plural, one {# Transaktion} other {# Transaktionen}}",
 			"transactions_plural": "{count} Transaktionen",
 			"totalInvested": "Gesamtinvestition",
-			"soldFor": "Verkauft für"
+			"soldFor": "Verkauft für",
+			"currencyCount": "{count, plural, one {# Währung} other {# Währungen}}"
 		},
 		"form": {
 			"addTitle": "Hinzufügen",
@@ -957,7 +967,11 @@
 			"confirmDeleteDesc": "Regel \"{name}\" löschen? Dies kann nicht rückgängig gemacht werden.",
 			"runCheck": "Jetzt prüfen",
 			"runCheckDone": "Prüfung abgeschlossen",
-			"subtitle": "Automatisierte Regeln für Wartung und Erinnerungen."
+			"subtitle": "Automatisierte Regeln für Wartung und Erinnerungen.",
+			"actions": {
+				"title": "Regel-Aktionen",
+				"description": "Führe die geplante Prüfung jetzt aus oder stelle die Standardregeln wieder her."
+			}
 		},
 		"notifications": {
 			"title": "Benachrichtigungen",
@@ -1043,7 +1057,8 @@
 			"sourceCode": "Quellcode",
 			"reportIssue": "Problem melden",
 			"tapAgain": "Nochmal tippen zum Offnen",
-			"changelog": "Changelog"
+			"changelog": "Changelog",
+			"integrations": "Integrationen"
 		},
 		"changelog": {
 			"title": "Was ist neu?",
@@ -1108,6 +1123,52 @@
 				"link": "Dokumentation aufrufen",
 				"specLink": "OpenAPI-Spec"
 			}
+		},
+		"integrations": {
+			"title": "Integrationen",
+			"description": "MotoMate speichert deine Dateien immer auf diesem Server. Diese optionalen Ziele erhalten eine Kopie.",
+			"storedPlaceholder": "Gespeichert, zum Behalten leer lassen",
+			"test": "Verbindung testen",
+			"testOk": "Verbindung funktioniert",
+			"never": "Nie",
+			"lastSync": "Letzte Synchronisierung: {date}",
+			"s3": {
+				"label": "S3-Backup",
+				"description": "Spiegle Dokumente und Bilder in jeden S3-kompatiblen Bucket, darunter MinIO, SeaweedFS, Garage und Backblaze B2.",
+				"endpointLabel": "Endpoint",
+				"endpointHint": "Fuer AWS S3 leer lassen. Selbst gehostete Anbieter wie MinIO oder SeaweedFS brauchen die vollstaendige URL.",
+				"regionLabel": "Region",
+				"bucketLabel": "Bucket",
+				"accessKeyLabel": "Access Key",
+				"secretKeyLabel": "Secret Key"
+			},
+			"paperless": {
+				"label": "Paperless-ngx",
+				"description": "Sende eine Kopie jedes hochgeladenen Dokuments an dein paperless-ngx Archiv fuer OCR und Volltextsuche.",
+				"urlLabel": "Server-URL",
+				"tokenLabel": "API-Token",
+				"tokenHint": "Lege eines in paperless-ngx unter Einstellungen, dann API-Token an.",
+				"includeReportsLabel": "Wartungsberichte ebenfalls archivieren",
+				"includeReportsHint": "Von MotoMate erzeugte Berichte werden standardmaessig uebersprungen, da du sie neu erzeugen kannst. Aktiviere dies, um sie auch in paperless zu behalten."
+			},
+			"sync": {
+				"title": "Alles synchronisieren",
+				"description": "Dateien von vor der Aktivierung wurden noch nicht kopiert. Fuehre das einmal nach der Einrichtung aus und erneut, wenn etwas fehlgeschlagen ist.",
+				"button": "Alles synchronisieren",
+				"running": "Laeuft",
+				"failed": "{count} Eintraege fehlgeschlagen. Behebe die Ursache und starte erneut.",
+				"skipped": "{count} Dokument(e) nicht an paperless gesendet.",
+				"reason": {
+					"unsupported": "Dateityp wird von paperless nicht unterstuetzt",
+					"report": "generierter Bericht, nicht archiviert"
+				},
+				"resultS3": "{uploaded} hochgeladen, {skipped} bereits im Bucket.",
+				"resultPaperless": "{pushed} an paperless gesendet, {already} bereits archiviert.",
+				"resend": "Alles erneut senden",
+				"resendHint": "Nutze dies nach dem Leeren deines paperless-Archivs: es ignoriert, was bereits gesendet wurde."
+			},
+			"saved": "Einstellungen gespeichert",
+			"saveFailed": "Einstellungen konnten nicht gespeichert werden"
 		}
 	},
 	"units": {
@@ -1160,7 +1221,8 @@
 			"title": "Benachrichtigungen",
 			"empty": "Keine neuen Benachrichtigungen",
 			"viewAll": "Alle anzeigen",
-			"error": "Benachrichtigungen konnten nicht geladen werden"
+			"error": "Benachrichtigungen konnten nicht geladen werden",
+			"clearAll": "Alle loeschen"
 		}
 	},
 	"notifications": {
@@ -1183,6 +1245,16 @@
 		"odometerNudge": {
 			"title": "Kilometerstand aktualisieren",
 			"body": "Bist du kürzlich mit {{vehicle_name}} gefahren? Aktualisiere den Kilometerstand, um deine Wartungs-Tracker aktuell zu halten."
+		},
+		"integration": {
+			"s3": {
+				"title": "S3-Backup schlaegt fehl",
+				"body": "MotoMate konnte deine Dateien nicht in den Bucket kopieren. Pruefe die Verbindung unter Einstellungen, Integrationen."
+			},
+			"paperless": {
+				"title": "Paperless-Archivierung schlaegt fehl",
+				"body": "MotoMate konnte ein Dokument nicht an paperless-ngx senden. Pruefe die Verbindung unter Einstellungen, Integrationen."
+			}
 		}
 	},
 	"travels": {
@@ -1273,7 +1345,8 @@
 			"title": "Ausgaben",
 			"modMonthly": "Monatlich",
 			"modCumulative": "Kumuliert",
-			"viewDetails": "Ausgaben anzeigen"
+			"viewDetails": "Ausgaben anzeigen",
+			"currencyNote": "Diagramm zeigt nur {currency}. Nicht enthalten: {excluded}."
 		},
 		"empty": {
 			"title": "Noch keine Daten",

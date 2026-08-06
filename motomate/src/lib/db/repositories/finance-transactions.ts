@@ -2,8 +2,17 @@ import { eq, and } from 'drizzle-orm';
 import { db } from '../index.js';
 import { finance_transactions } from '../schema.js';
 import { getVehicleById } from './vehicles.js';
+import { getServiceLogsByVehicle } from './service-logs.js';
 import type { InsertFinanceTransaction, FinanceTransaction } from '../schema.js';
 import { generateId } from '../../utils/id.js';
+
+export interface VehicleExpense {
+	vehicle_id: string;
+	amount_cents: number;
+	currency: string;
+	category: string;
+	performed_at: string;
+}
 
 function hydrateFinanceTransaction(transaction: FinanceTransaction): FinanceTransaction {
 	return {
@@ -51,6 +60,34 @@ export async function getFinanceTransactionsByVehicle(
 		orderBy: (t, { desc }) => [desc(t.performed_at), desc(t.created_at)]
 	});
 	return rows.map(hydrateFinanceTransaction);
+}
+
+export async function getVehicleExpenses(
+	vehicleId: string,
+	userId: string
+): Promise<VehicleExpense[]> {
+	const [transactions, serviceLogs] = await Promise.all([
+		getFinanceTransactionsByVehicle(vehicleId, userId),
+		getServiceLogsByVehicle(vehicleId, userId)
+	]);
+	return [
+		...transactions.map((t) => ({
+			vehicle_id: t.vehicle_id,
+			amount_cents: t.amount_cents,
+			currency: t.currency,
+			category: t.category as string,
+			performed_at: t.performed_at
+		})),
+		...serviceLogs
+			.filter((log) => (log.cost_cents ?? 0) > 0)
+			.map((log) => ({
+				vehicle_id: log.vehicle_id,
+				amount_cents: log.cost_cents!,
+				currency: log.currency,
+				category: 'maintenance',
+				performed_at: log.performed_at
+			}))
+	].sort((a, b) => b.performed_at.localeCompare(a.performed_at));
 }
 
 export async function getFinanceTransactionById(

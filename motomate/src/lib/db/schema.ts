@@ -16,6 +16,26 @@ export type NotificationChannels = {
 	home_assistant?: { enabled: boolean; webhook_url?: string };
 };
 
+// Credentials are encrypted at rest (see $lib/server/secrets.js) thus wont' leave the serverrr
+export type Integrations = {
+	s3?: {
+		enabled: boolean;
+		endpoint?: string;
+		region?: string;
+		bucket?: string;
+		access_key?: string;
+		secret_key?: string;
+		last_sync_at?: string | null;
+	};
+	paperless?: {
+		enabled: boolean;
+		url?: string;
+		token?: string;
+		include_reports?: boolean;
+		last_sync_at?: string | null;
+	};
+};
+
 export type PagePrefs = {
 	maintenance?: {
 		sortBy?: 'status' | 'name' | 'last';
@@ -73,6 +93,7 @@ export type UserSettings = {
 	avatar_key?: string | null;
 	avatar_seed?: string | null;
 	page_prefs?: PagePrefs;
+	integrations?: Integrations;
 };
 
 export type VehicleMeta = {
@@ -589,36 +610,6 @@ export const api_keys = sqliteTable(
 );
 
 // Relations
-export const usersRelations = relations(users, ({ many }) => ({
-	vehicles: many(vehicles),
-	task_templates: many(task_templates),
-	workflow_rules: many(workflow_rules),
-	notifications: many(notifications),
-	push_subscriptions: many(push_subscriptions),
-	api_keys: many(api_keys)
-}));
-
-export const vehiclesRelations = relations(vehicles, ({ one, many }) => ({
-	user: one(users, { fields: [vehicles.user_id], references: [users.id] }),
-	task_templates: many(task_templates),
-	active_trackers: many(active_trackers),
-	service_logs: many(service_logs),
-	odometer_logs: many(odometer_logs),
-	documents: many(documents),
-	travels: many(travels),
-	vehicle_notes: many(vehicle_notes)
-}));
-
-export const travelsRelations = relations(travels, ({ one }) => ({
-	vehicle: one(vehicles, { fields: [travels.vehicle_id], references: [vehicles.id] }),
-	user: one(users, { fields: [travels.user_id], references: [users.id] })
-}));
-
-export const taskTemplatesRelations = relations(task_templates, ({ one, many }) => ({
-	user: one(users, { fields: [task_templates.user_id], references: [users.id] }),
-	vehicle: one(vehicles, { fields: [task_templates.vehicle_id], references: [vehicles.id] }),
-	active_trackers: many(active_trackers)
-}));
 
 export const activeTrackersRelations = relations(active_trackers, ({ one, many }) => ({
 	vehicle: one(vehicles, { fields: [active_trackers.vehicle_id], references: [vehicles.id] }),
@@ -627,48 +618,6 @@ export const activeTrackersRelations = relations(active_trackers, ({ one, many }
 		references: [task_templates.id]
 	}),
 	service_logs: many(service_logs)
-}));
-
-export const serviceLogsRelations = relations(service_logs, ({ one }) => ({
-	vehicle: one(vehicles, { fields: [service_logs.vehicle_id], references: [vehicles.id] }),
-	tracker: one(active_trackers, {
-		fields: [service_logs.tracker_id],
-		references: [active_trackers.id]
-	})
-}));
-
-export const documentsRelations = relations(documents, ({ one }) => ({
-	vehicle: one(vehicles, { fields: [documents.vehicle_id], references: [vehicles.id] }),
-	user: one(users, { fields: [documents.user_id], references: [users.id] })
-}));
-
-export const workflowRulesRelations = relations(workflow_rules, ({ one }) => ({
-	user: one(users, { fields: [workflow_rules.user_id], references: [users.id] }),
-	vehicle: one(vehicles, { fields: [workflow_rules.vehicle_id], references: [vehicles.id] })
-}));
-
-export const notificationsRelations = relations(notifications, ({ one }) => ({
-	user: one(users, { fields: [notifications.user_id], references: [users.id] }),
-	vehicle: one(vehicles, { fields: [notifications.vehicle_id], references: [vehicles.id] })
-}));
-
-export const odometerLogsRelations = relations(odometer_logs, ({ one }) => ({
-	vehicle: one(vehicles, { fields: [odometer_logs.vehicle_id], references: [vehicles.id] }),
-	user: one(users, { fields: [odometer_logs.user_id], references: [users.id] })
-}));
-
-export const financeTransactionsRelations = relations(finance_transactions, ({ one }) => ({
-	vehicle: one(vehicles, { fields: [finance_transactions.vehicle_id], references: [vehicles.id] }),
-	user: one(users, { fields: [finance_transactions.user_id], references: [users.id] })
-}));
-
-export const vehicleNotesRelations = relations(vehicle_notes, ({ one }) => ({
-	vehicle: one(vehicles, { fields: [vehicle_notes.vehicle_id], references: [vehicles.id] }),
-	user: one(users, { fields: [vehicle_notes.user_id], references: [users.id] })
-}));
-
-export const apiKeysRelations = relations(api_keys, ({ one }) => ({
-	user: one(users, { fields: [api_keys.user_id], references: [users.id] })
 }));
 
 // Type exports

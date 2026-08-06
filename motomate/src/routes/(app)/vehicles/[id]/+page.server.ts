@@ -3,10 +3,7 @@ import type { Actions, PageServerLoad } from './$types';
 import {
 	getServiceLogsByVehicle,
 	createServiceLog,
-	updateServiceLog,
-	deleteServiceLog,
-	getServiceLogById,
-	updateServiceLogAttachments
+	deleteServiceLog
 } from '$lib/db/repositories/service-logs.js';
 import {
 	getOdometerLogs,
@@ -24,24 +21,20 @@ import {
 import { isReminderTracker } from '$lib/utils/reminder-only.js';
 import { getDocumentsByVehicle, createDocument } from '$lib/db/repositories/documents.js';
 import { getStorage } from '$lib/storage/index.js';
+import { onDocumentCreated } from '$lib/server/integrations.js';
 import { attachmentStorageKey } from '$lib/utils/storage.js';
 import { CreateServiceLogSchema } from '$lib/validators/schemas.js';
 import { runWorkflowChecks } from '$lib/workflow/engine.js';
+import { applyServiceLogEdit } from '$lib/server/service-log-edit.js';
 import { getTravelsForTimeline } from '$lib/db/repositories/travels.js';
 import {
 	getFinanceTransactionsByVehicle,
 	createFinanceTransaction,
 	updateFinanceTransaction,
+	updateFinanceTransactionAttachments,
 	deleteFinanceTransaction
 } from '$lib/db/repositories/finance-transactions.js';
-
-const VALID_DOC_TYPES = ['service', 'quotation', 'papers', 'photo', 'notes', 'other'] as const;
-type ValidDocType = (typeof VALID_DOC_TYPES)[number];
-function validateDocType(raw: string): ValidDocType {
-	return VALID_DOC_TYPES.includes(raw as ValidDocType) ? (raw as ValidDocType) : 'other';
-}
-
-const MAX_ATTACHMENT_SIZE = 10 * 1024 * 1024; // 10 MB
+import { collectAttachmentIds, MAX_ATTACHMENT_SIZE } from '$lib/server/finance-attachments.js';
 
 export const load: PageServerLoad = async ({ parent, locals }) => {
 	const { vehicle } = await parent();
@@ -128,6 +121,7 @@ export const actions: Actions = {
 				mime_type: attachmentFile.type || 'application/octet-stream',
 				size_bytes: attachmentFile.size
 			});
+			onDocumentCreated(locals.user!.id, doc);
 			attachmentDocIds.push(doc.id);
 		}
 
@@ -158,51 +152,6 @@ export const actions: Actions = {
 		runWorkflowChecks(locals.user!.id).catch(() => {});
 
 		return { logged: true, warning };
-	},
-
-	linkDocument: async ({ request, locals, params }) => {
-		const data = await request.formData();
-		const serviceLogId = String(data.get('service_log_id') ?? '');
-		const documentId = String(data.get('document_id') ?? '');
-		if (!serviceLogId || !documentId) return fail(400, { error: 'Missing fields' });
-
-		const log = await getServiceLogById(serviceLogId);
-		if (!log || log.vehicle_id !== params.id) return fail(404, { error: 'Not found' });
-
-		// Verify vehicle ownership
-		const vehicle = await getVehicleById(params.id, locals.user!.id);
-		if (!vehicle) return fail(403, { error: 'Forbidden' });
-
-		const current = (log.attachments as string[]) ?? [];
-		if (!current.includes(documentId)) {
-			await updateServiceLogAttachments(serviceLogId, params.id, locals.user!.id, [
-				...current,
-				documentId
-			]);
-		}
-		return { linked: true };
-	},
-
-	unlinkDocument: async ({ request, locals, params }) => {
-		const data = await request.formData();
-		const serviceLogId = String(data.get('service_log_id') ?? '');
-		const documentId = String(data.get('document_id') ?? '');
-		if (!serviceLogId || !documentId) return fail(400, { error: 'Missing fields' });
-
-		const log = await getServiceLogById(serviceLogId);
-		if (!log || log.vehicle_id !== params.id) return fail(404, { error: 'Not found' });
-
-		const vehicle = await getVehicleById(params.id, locals.user!.id);
-		if (!vehicle) return fail(403, { error: 'Forbidden' });
-
-		const current = (log.attachments as string[]) ?? [];
-		await updateServiceLogAttachments(
-			serviceLogId,
-			params.id,
-			locals.user!.id,
-			current.filter((id) => id !== documentId)
-		);
-		return { unlinked: true };
 	},
 
 	updateOdometer: async ({ request, locals, params }) => {
@@ -236,38 +185,9 @@ export const actions: Actions = {
 	},
 
 	editServiceLog: async ({ request, locals, params }) => {
-		const raw = Object.fromEntries(await request.formData());
-		const id = String(raw.id);
-		const performedAt = String(raw.performed_at || '');
-		const odoAtService = Number(raw.odometer_at_service);
-		if (!performedAt.match(/^\d{4}-\d{2}-\d{2}$/)) return fail(400, { editError: 'Invalid date' });
-		if (!Number.isInteger(odoAtService) || odoAtService < 0)
-			return fail(400, { editError: 'Invalid odometer' });
-		const costCents = raw.cost ? Math.round(Number(raw.cost) * 100) : null;
-		const notes = String(raw.notes || '').trim() || null;
-		const remark = raw.remark ? String(raw.remark).trim() : null;
-
-		const vehicle = await getVehicleById(params.id, locals.user!.id);
-		const prevMaxOdo = vehicle?.current_odometer ?? 0;
-
-		await updateServiceLog(id, params.id, locals.user!.id, {
-			performed_at: performedAt,
-			odometer_at_service: odoAtService,
-			cost_cents: costCents,
-			notes,
-			remark
-		});
-
-		const trueOdo = await recomputeCurrentOdometer(params.id, locals.user!.id);
-		await recomputeTrackerStatuses(params.id, trueOdo);
-		runWorkflowChecks(locals.user!.id).catch(() => {});
-
-		const warning =
-			odoAtService < prevMaxOdo
-				? `Odometer is lower than the highest recorded reading (${prevMaxOdo} km). Saved as a historical record.`
-				: undefined;
-
-		return { editedLog: true, warning };
+		const result = await applyServiceLogEdit(await request.formData(), locals.user!.id, params.id);
+		if ('error' in result) return fail(result.status, { editError: result.error });
+		return { editedLog: true, warning: result.warning };
 	},
 
 	deleteServiceLog: async ({ request, locals, params }) => {
@@ -364,53 +284,6 @@ export const actions: Actions = {
 		return { noteLogged: true };
 	},
 
-	uploadToLog: async ({ request, locals, params }) => {
-		const formData = await request.formData();
-		const serviceLogId = String(formData.get('service_log_id') ?? '');
-		const file = formData.get('file') as File | null;
-
-		if (!serviceLogId) return fail(400, { uploadError: 'Missing service log ID' });
-		if (!file || file.size === 0) return fail(400, { uploadError: 'No file selected' });
-		if (file.size > MAX_ATTACHMENT_SIZE)
-			return fail(400, { uploadError: 'File too large (max 10 MB)' });
-
-		const log = await getServiceLogById(serviceLogId);
-		if (!log || log.vehicle_id !== params.id) return fail(404, { uploadError: 'Not found' });
-
-		const vehicle = await getVehicleById(params.id, locals.user!.id);
-		if (!vehicle) return fail(403, { uploadError: 'Forbidden' });
-
-		const key = attachmentStorageKey(locals.user!.id, file.name);
-		const buffer = Buffer.from(await file.arrayBuffer());
-		try {
-			const storage = getStorage();
-			await storage.put(key, buffer, file.type || 'application/octet-stream');
-		} catch (e) {
-			console.error('Attachment upload failed:', e);
-			return fail(500, { uploadError: 'Upload failed' });
-		}
-
-		const docName = String(formData.get('doc_name') || file.name)
-			.trim()
-			.slice(0, 200);
-		const docType = String(formData.get('doc_type') || 'service');
-		const doc = await createDocument(locals.user!.id, {
-			vehicle_id: params.id,
-			name: docName,
-			doc_type: docType,
-			storage_key: key,
-			mime_type: file.type || 'application/octet-stream',
-			size_bytes: file.size
-		});
-
-		const current = (log.attachments as string[]) ?? [];
-		await updateServiceLogAttachments(serviceLogId, params.id, locals.user!.id, [
-			...current,
-			doc.id
-		]);
-		return { attachUploaded: true };
-	},
-
 	deleteFinanceEntry: async ({ request, locals, params }) => {
 		const data = await request.formData();
 		const id = String(data.get('id') ?? '');
@@ -442,34 +315,8 @@ export const actions: Actions = {
 		];
 		if (!validCategories.includes(category)) return fail(400, { error: 'Invalid category' });
 
-		const attachmentFile = formData.get('attachment_file') as File | null;
-		const attachmentDocIds: string[] = [];
-		if (attachmentFile && attachmentFile.size > 0) {
-			if (attachmentFile.size > MAX_ATTACHMENT_SIZE)
-				return fail(400, { error: 'Attachment too large (max 10 MB)' });
-			const key = attachmentStorageKey(locals.user!.id, attachmentFile.name);
-			const buffer = Buffer.from(await attachmentFile.arrayBuffer());
-			try {
-				const storage = getStorage();
-				await storage.put(key, buffer, attachmentFile.type || 'application/octet-stream');
-			} catch {
-				return fail(500, { error: 'Attachment upload failed' });
-			}
-			const docName = String(formData.get('attachment_name') || attachmentFile.name)
-				.trim()
-				.slice(0, 200);
-			const docType = validateDocType(String(formData.get('attachment_type') || 'other'));
-			const doc = await createDocument(locals.user!.id, {
-				vehicle_id: params.id,
-				name: docName,
-				doc_type: docType,
-				storage_key: key,
-				mime_type: attachmentFile.type || 'application/octet-stream',
-				size_bytes: attachmentFile.size
-			});
-			attachmentDocIds.push(doc.id);
-		}
-		const linkedDocIds = formData.getAll('linked_doc_id').map(String).filter(Boolean);
+		const attachments = await collectAttachmentIds(formData, locals.user!.id, params.id);
+		if ('error' in attachments) return fail(attachments.status, { error: attachments.error });
 
 		await createFinanceTransaction(locals.user!.id, {
 			vehicle_id: params.id,
@@ -485,7 +332,7 @@ export const actions: Actions = {
 			notes,
 			performed_at: date,
 			odometer_at_transaction: odometer,
-			attachments: [...attachmentDocIds, ...linkedDocIds]
+			attachments: attachments.ids
 		});
 
 		return { created: true };
@@ -515,6 +362,9 @@ export const actions: Actions = {
 		];
 		if (!validCategories.includes(category)) return fail(400, { error: 'Invalid category' });
 
+		const attachments = await collectAttachmentIds(formData, locals.user!.id, params.id);
+		if ('error' in attachments) return fail(attachments.status, { error: attachments.error });
+
 		await updateFinanceTransaction(id, params.id, locals.user!.id, {
 			category: category as
 				| 'maintenance'
@@ -528,6 +378,9 @@ export const actions: Actions = {
 			performed_at: date,
 			odometer_at_transaction: odometer
 		});
+
+		// The form submits the attachments it kept plus anything newly linked, so replace the list
+		await updateFinanceTransactionAttachments(id, params.id, locals.user!.id, attachments.ids);
 
 		return { edited: true };
 	}
