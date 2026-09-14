@@ -5,6 +5,7 @@ import { getStorage } from '$lib/storage/index.js';
 import { mirrorPut, mirrorDelete } from '$lib/server/integrations.js';
 import type { UserSettings } from '$lib/db/schema.js';
 import type { OdometerUnit } from '$lib/utils/measurement.js';
+import { CurrencySchema } from '$lib/validators/schemas.js';
 
 const MAX_AVATAR_SIZE = 2 * 1024 * 1024; // 2 MB
 const ALLOWED_AVATAR_MIMES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
@@ -36,7 +37,11 @@ export const actions: Actions = {
 		const data = Object.fromEntries(await request.formData());
 		const patch: Partial<UserSettings> = {};
 		if ('theme' in data) patch.theme = data.theme as 'system' | 'light' | 'dark';
-		if ('currency' in data) patch.currency = String(data.currency);
+		if ('currency' in data) {
+			const currency = CurrencySchema.safeParse(data.currency);
+			if (!currency.success) return fail(400, { error: 'Invalid currency' });
+			patch.currency = currency.data;
+		}
 		if ('odometer_unit' in data) patch.odometer_unit = data.odometer_unit as OdometerUnit;
 		if ('locale' in data) patch.locale = String(data.locale);
 		if ('display_name' in data) patch.display_name = String(data.display_name).trim() || null;

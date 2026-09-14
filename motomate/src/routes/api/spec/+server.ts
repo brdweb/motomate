@@ -522,7 +522,7 @@ const spec = {
 				tags: ['Spending'],
 				summary: 'Expense history',
 				description:
-					'Lists expenses for a vehicle. `total_cents` sums all records, including those outside the current page.',
+					'Lists expenses for a vehicle. `total_by_currency` sums all records, including those outside the current page, without combining currencies. `total_cents` is null when records use multiple currencies.',
 				operationId: 'listFinanceTransactions',
 				parameters: [
 					{ name: 'id', in: 'path', required: true, schema: { type: 'string' } },
@@ -544,7 +544,21 @@ const spec = {
 										total: { type: 'integer' },
 										total_cents: {
 											type: 'integer',
-											description: 'Sum of all amount_cents across all pages.'
+											nullable: true,
+											description:
+												'Sum of all amount_cents across all pages when every record uses one currency; otherwise null.'
+										},
+										total_by_currency: {
+											type: 'array',
+											description: 'Totals for all records grouped by currency.',
+											items: {
+												type: 'object',
+												required: ['currency', 'total_cents'],
+												properties: {
+													currency: { type: 'string' },
+													total_cents: { type: 'integer' }
+												}
+											}
 										}
 									}
 								}

@@ -84,6 +84,21 @@ describe('GET /vehicles/:id/finance', () => {
 		expect(body.total_cents).toBe(5000);
 	});
 
+	it('keeps mixed-currency totals separate instead of adding incomparable cents', async () => {
+		vi.mocked(getFinanceTransactionsByVehicle).mockResolvedValue([
+			{ ...mockTx, amount_cents: 3000, currency: 'EUR' },
+			{ ...mockTx, id: 'ft_2', amount_cents: 2000, currency: 'USD' }
+		] as any);
+
+		const body = await (await listTx(event(mockUser, { id: 'v_1' }))).json();
+
+		expect(body.total_cents).toBeNull();
+		expect(body.total_by_currency).toEqual([
+			{ currency: 'EUR', total_cents: 3000 },
+			{ currency: 'USD', total_cents: 2000 }
+		]);
+	});
+
 	it('returns 404 when vehicle not found', async () => {
 		vi.mocked(getVehicleById).mockResolvedValue(undefined);
 		expect((await listTx(event(mockUser, { id: 'bad' }))).status).toBe(404);

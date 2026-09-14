@@ -24,9 +24,24 @@ export const GET: RequestHandler = async ({ locals, params, url }) => {
 
 	const { limit, offset } = parsePage(url);
 	const all = await getFinanceTransactionsByVehicle(params.id!, locals.user!.id);
-	const total_cents = all.reduce((sum, t) => sum + t.amount_cents, 0);
+	const totals = new Map<string, number>();
+	for (const transaction of all) {
+		totals.set(
+			transaction.currency,
+			(totals.get(transaction.currency) ?? 0) + transaction.amount_cents
+		);
+	}
+	const total_by_currency = [...totals.entries()]
+		.map(([currency, total_cents]) => ({ currency, total_cents }))
+		.sort((a, b) => a.currency.localeCompare(b.currency));
+	const total_cents = totals.size <= 1 ? (total_by_currency[0]?.total_cents ?? 0) : null;
 
-	return json({ data: all.slice(offset, offset + limit), total: all.length, total_cents });
+	return json({
+		data: all.slice(offset, offset + limit),
+		total: all.length,
+		total_cents,
+		total_by_currency
+	});
 };
 
 export const POST: RequestHandler = async ({ locals, params, request }) => {

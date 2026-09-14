@@ -4,6 +4,8 @@ import { DEFAULT_ODOMETER_UNIT, DISTANCE_UNITS, MEASUREMENT_UNITS } from '../uti
 
 const MeasurementUnitSchema = z.enum(MEASUREMENT_UNITS);
 const DistanceUnitSchema = z.enum(DISTANCE_UNITS);
+export const CURRENCY_CODES = ['EUR', 'GBP', 'CHF', 'USD'] as const;
+export const CurrencySchema = z.enum(CURRENCY_CODES);
 
 // Coercion helpers: form data and presets both produce null, undefined or "" for optional numbers
 
@@ -163,7 +165,7 @@ export const IntegrationsSchema = z
 
 export const UserSettingsSchema = z.object({
 	theme: z.enum(['system', 'light', 'dark']).default('system'),
-	currency: z.string().length(3).default('EUR'),
+	currency: CurrencySchema.default('EUR'),
 	odometer_unit: DistanceUnitSchema.default(DEFAULT_ODOMETER_UNIT),
 	locale: z.string().default('en'),
 	display_name: z.string().min(1).max(80).trim().nullable().optional(),
@@ -229,9 +231,9 @@ export const UpdateVehicleSchema = CreateVehicleSchema.partial().extend({
 	sort_order: optInt(),
 	cover_image_key: z.string().max(500).nullish(),
 	purchase_price_cents: z.number().int().min(0).nullable().optional(),
-	purchase_price_currency: z.string().length(3).nullable().optional(),
+	purchase_price_currency: CurrencySchema.nullable().optional(),
 	sold_price_cents: z.number().int().min(0).nullable().optional(),
-	sold_price_currency: z.string().length(3).nullable().optional()
+	sold_price_currency: CurrencySchema.nullable().optional()
 });
 
 export const CreateTaskTemplateSchema = z.object({
@@ -253,7 +255,7 @@ export const CreateServiceLogSchema = z.object({
 	performed_at: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be YYYY-MM-DD'),
 	odometer_at_service: reqInt(0),
 	cost_cents: optInt(0),
-	currency: z.string().length(3).default('EUR'),
+	currency: CurrencySchema.default('EUR'),
 	notes: optStr(2000),
 	parts_used: z
 		.array(
@@ -333,7 +335,7 @@ export const CreateTravelSchema = z.object({
 	title: z.string().min(1).max(200).trim(),
 	remark: optStr(2000),
 	total_expenses_cents: optInt(0),
-	currency: z.string().length(3).default('EUR'),
+	currency: CurrencySchema.default('EUR'),
 	gpx_document_ids: z.array(z.string()).default([])
 });
 

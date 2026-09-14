@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
+	import { invalidateAll } from '$app/navigation';
 	import { untrack } from 'svelte';
 	import type { PageData } from './$types';
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
@@ -367,14 +368,17 @@
 				action="?/convertUnit"
 				bind:this={unitConversionForm}
 				use:enhance={() => {
+					const convertedOdometer = convertedCurrentReading;
+					const convertedUnit = selectedDistanceUnit;
 					unitConverting = true;
 					return async ({ result, update }) => {
 						await update({ reset: false });
 						unitConverting = false;
 						showUnitConversionDialog = false;
 						if (result.type === 'success') {
-							odometerInput = data.vehicle.current_odometer;
-							selectedDistanceUnit = data.vehicle.odometer_unit as DistanceUnit;
+							odometerInput = convertedOdometer;
+							selectedDistanceUnit = convertedUnit;
+							await invalidateAll();
 							toasts.success($_('vehicle.edit.measurementUnit.converted'));
 						} else if (result.type === 'failure' && (result.data as any)?.error) {
 							toasts.error((result.data as any).error);

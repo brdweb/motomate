@@ -5,6 +5,7 @@
 	import { _, waitLocale } from '$lib/i18n';
 	import { getMeasurementUnitTranslationKey } from '$lib/utils/measurement.js';
 	import { drafts } from '$lib/stores/drafts.svelte.js';
+	import { resolveDraftField } from '$lib/utils/draft-values.js';
 	import DraftBanner from '$lib/components/ui/DraftBanner.svelte';
 
 	let {
@@ -41,10 +42,11 @@
 	);
 
 	let odoValue = $state(
-		untrack(
-			() =>
-				(_initDraft?.fields.odometer as string) ??
-				(editData ? String(editData.odometer) : String(currentOdometer))
+		untrack(() =>
+			resolveDraftField(
+				_initDraft?.fields.odometer,
+				editData ? String(editData.odometer) : String(currentOdometer)
+			)
 		)
 	);
 	let recordedAt = $state(
